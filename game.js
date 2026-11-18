@@ -1467,6 +1467,7 @@ class FatalStrike3DGame {
     this.buildDojoStage();
     this.initDOM();
     this.initKeyboard();
+    this.initCharacterSelect();
     this.initPreviewMiniRenderers();
     this.updateCharSelectUI();
     this.startLoop();
@@ -1640,13 +1641,19 @@ class FatalStrike3DGame {
     this.p1PreviewModel = p1Built.root;
     this.p1PreviewModel.position.set(0, -0.05, 0);
     this.p1PreviewModel.scale.set(0.82, 0.82, 0.82);
-    this.p1Scene.add(this.p1PreviewModel);
+    if (this.p1Scene) {
+      this.p1Scene.add(this.p1PreviewModel);
+      if (this.p1Renderer && this.p1Cam) this.p1Renderer.render(this.p1Scene, this.p1Cam);
+    }
 
     const p2Built = Character3DBuilder.build(this.p2Choice);
     this.p2PreviewModel = p2Built.root;
     this.p2PreviewModel.position.set(0, -0.05, 0);
     this.p2PreviewModel.scale.set(0.82, 0.82, 0.82);
-    this.p2Scene.add(this.p2PreviewModel);
+    if (this.p2Scene) {
+      this.p2Scene.add(this.p2PreviewModel);
+      if (this.p2Renderer && this.p2Cam) this.p2Renderer.render(this.p2Scene, this.p2Cam);
+    }
   }
 
   // ==========================================================================
@@ -2146,13 +2153,67 @@ class FatalStrike3DGame {
     this.checkBothReady();
   }
 
+  initCharacterSelect() {
+    const p1Container = document.getElementById('p1-char-buttons');
+    const p2Container = document.getElementById('p2-char-buttons');
+    const p1ReadyBtn = document.getElementById('p1-ready-btn');
+    const p2ReadyBtn = document.getElementById('p2-ready-btn');
+
+    if (p1Container) p1Container.innerHTML = '';
+    if (p2Container) p2Container.innerHTML = '';
+
+    Object.keys(CHARACTER_DATA).forEach((key) => {
+      const char = CHARACTER_DATA[key];
+
+      // Botón P1
+      if (p1Container) {
+        const btn1 = document.createElement('button');
+        btn1.className = `char-select-btn ${key === this.p1Choice ? 'active' : ''}`;
+        btn1.textContent = char.name;
+        btn1.addEventListener('click', () => {
+          if (this.p1Ready) return;
+          this.p1Choice = key;
+          sounds.playPunch();
+          this.updateCharSelectUI();
+        });
+        p1Container.appendChild(btn1);
+      }
+
+      // Botón P2
+      if (p2Container) {
+        const btn2 = document.createElement('button');
+        btn2.className = `char-select-btn ${key === this.p2Choice ? 'active' : ''}`;
+        btn2.textContent = char.name;
+        btn2.addEventListener('click', () => {
+          if (this.p2Ready) return;
+          this.p2Choice = key;
+          sounds.playKick();
+          this.updateCharSelectUI();
+        });
+        p2Container.appendChild(btn2);
+      }
+    });
+
+    if (p1ReadyBtn) {
+      p1ReadyBtn.addEventListener('click', () => this.toggleP1Ready());
+    }
+    if (p2ReadyBtn) {
+      p2ReadyBtn.addEventListener('click', () => this.toggleP2Ready());
+    }
+  }
+
   checkBothReady() {
+    const btn = document.getElementById('btn-start-fight') || this.dom.btnStartFight;
     if (this.p1Ready && this.p2Ready) {
-      this.dom.btnStartFight.disabled = false;
-      this.dom.btnStartFight.classList.add('pulse-ready');
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.add('pulse-ready');
+      }
     } else {
-      this.dom.btnStartFight.disabled = true;
-      this.dom.btnStartFight.classList.remove('pulse-ready');
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.remove('pulse-ready');
+      }
     }
   }
 
@@ -2160,34 +2221,55 @@ class FatalStrike3DGame {
     const p1Data = CHARACTER_DATA[this.p1Choice];
     const p2Data = CHARACTER_DATA[this.p2Choice];
 
-    document.getElementById('p1-selected-name').textContent = p1Data.name;
-    document.getElementById('p1-selected-skin').textContent = `SKIN: ${p1Data.skinName}`;
-    document.getElementById('p1-selected-desc').textContent = p1Data.desc;
-    document.getElementById('p1-stat-speed').style.width = `${p1Data.stats.speed}%`;
-    document.getElementById('p1-stat-power').style.width = `${p1Data.stats.power}%`;
-    document.getElementById('p1-stat-defense').style.width = `${p1Data.stats.defense}%`;
+    const p1Name = document.getElementById('p1-selected-name');
+    if (p1Name) p1Name.textContent = p1Data.name;
+    const p1Skin = document.getElementById('p1-selected-skin');
+    if (p1Skin) p1Skin.textContent = `SKIN: ${p1Data.skinName}`;
+    const p1Desc = document.getElementById('p1-selected-desc');
+    if (p1Desc) p1Desc.textContent = p1Data.desc;
+    const p1Spd = document.getElementById('p1-stat-speed');
+    if (p1Spd) p1Spd.style.width = `${p1Data.stats.speed}%`;
+    const p1Pow = document.getElementById('p1-stat-power');
+    if (p1Pow) p1Pow.style.width = `${p1Data.stats.power}%`;
+    const p1Def = document.getElementById('p1-stat-defense');
+    if (p1Def) p1Def.style.width = `${p1Data.stats.defense}%`;
 
-    document.getElementById('p2-selected-name').textContent = p2Data.name;
-    document.getElementById('p2-selected-skin').textContent = `SKIN: ${p2Data.skinName}`;
-    document.getElementById('p2-selected-desc').textContent = p2Data.desc;
-    document.getElementById('p2-stat-speed').style.width = `${p2Data.stats.speed}%`;
-    document.getElementById('p2-stat-power').style.width = `${p2Data.stats.power}%`;
-    document.getElementById('p2-stat-defense').style.width = `${p2Data.stats.defense}%`;
+    const p2Name = document.getElementById('p2-selected-name');
+    if (p2Name) p2Name.textContent = p2Data.name;
+    const p2Skin = document.getElementById('p2-selected-skin');
+    if (p2Skin) p2Skin.textContent = `SKIN: ${p2Data.skinName}`;
+    const p2Desc = document.getElementById('p2-selected-desc');
+    if (p2Desc) p2Desc.textContent = p2Data.desc;
+    const p2Spd = document.getElementById('p2-stat-speed');
+    if (p2Spd) p2Spd.style.width = `${p2Data.stats.speed}%`;
+    const p2Pow = document.getElementById('p2-stat-power');
+    if (p2Pow) p2Pow.style.width = `${p2Data.stats.power}%`;
+    const p2Def = document.getElementById('p2-stat-defense');
+    if (p2Def) p2Def.style.width = `${p2Data.stats.defense}%`;
 
-    const btnReadyP1 = document.getElementById('btn-p1-ready');
-    btnReadyP1.classList.toggle('ready', this.p1Ready);
-    btnReadyP1.textContent = this.p1Ready ? '¡LISTO P1! (F)' : 'LISTO P1 (F / ENTER)';
-
-    const btnReadyP2 = document.getElementById('btn-p2-ready');
-    btnReadyP2.classList.toggle('ready', this.p2Ready);
-    btnReadyP2.textContent = this.p2Ready ? '¡LISTO P2! (K)' : 'LISTO P2 (K / ENTER)';
-
-    document.querySelectorAll('.char-btn').forEach(btn => {
-      const isP1 = btn.dataset.player === '1';
-      const selected = isP1 ? this.p1Choice === btn.dataset.char : this.p2Choice === btn.dataset.char;
-      btn.classList.toggle('active', selected);
+    // Resaltar botones activos
+    document.querySelectorAll('#p1-char-buttons .char-select-btn').forEach((btn, idx) => {
+      const key = Object.keys(CHARACTER_DATA)[idx];
+      btn.classList.toggle('active', key === this.p1Choice);
+    });
+    document.querySelectorAll('#p2-char-buttons .char-select-btn').forEach((btn, idx) => {
+      const key = Object.keys(CHARACTER_DATA)[idx];
+      btn.classList.toggle('active', key === this.p2Choice);
     });
 
+    const btnReadyP1 = document.getElementById('p1-ready-btn');
+    if (btnReadyP1) {
+      btnReadyP1.classList.toggle('ready-active', this.p1Ready);
+      btnReadyP1.textContent = this.p1Ready ? '✓ JUGADOR 1 LISTO (F)' : '¡LISTO P1! [F / ENTER]';
+    }
+
+    const btnReadyP2 = document.getElementById('p2-ready-btn');
+    if (btnReadyP2) {
+      btnReadyP2.classList.toggle('ready-active', this.p2Ready);
+      btnReadyP2.textContent = this.p2Ready ? '✓ JUGADOR 2 LISTO (K)' : '¡LISTO P2! [K / ENTER]';
+    }
+
+    this.checkBothReady();
     this.updatePreviewModels();
   }
 
@@ -2435,9 +2517,10 @@ class FatalStrike3DGame {
       const grandWinner = this.p1.roundsWon >= MAX_ROUNDS_TO_WIN ? this.p1 : this.p2;
       grandWinner.state = 'win';
 
-      document.getElementById('winner-portrait-text').textContent = grandWinner.data.name.toUpperCase();
-      document.getElementById('match-outcome-title').textContent = isFatality ? '¡FATALITY SANGRIENTA!' : '¡VICTORIA TOTAL!';
-      document.getElementById('match-stats-text').textContent = `Luchador vencedor: ${grandWinner.data.skinName} (${grandWinner.roundsWon} rondas ganadas)`;
+      const winTitle = document.getElementById('match-winner-title');
+      if (winTitle) winTitle.textContent = isFatality ? '¡FATALITY SANGRIENTA!' : '¡VICTORIA TOTAL!';
+      const winSub = document.getElementById('match-winner-subtitle');
+      if (winSub) winSub.textContent = `${grandWinner.data.name.toUpperCase()} (${grandWinner.data.skinName.toUpperCase()}) GANA EL COMBATE`;
 
       setTimeout(() => {
         this.dom.matchOverScreen.classList.remove('hidden');
