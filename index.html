@@ -3,57 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Fatal Strike - 2D Arcade Fighting Game</title>
+  <title>FATAL STRIKE - Mortal Kombat 3D AAA Experience</title>
+  
+  <!-- CDNs: Three.js r128 y GSAP 3.12.2 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <!-- Fuentes Arcade y Horror -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Orbitron:wght@500;700;900&family=Teko:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nosifer&family=Orbitron:wght@700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="arcade-cabinet">
-    <!-- Top Header Arcade Bezel -->
+  <div class="arcade-cabinet-3d">
+    <!-- Header Arcade Superior -->
     <header class="arcade-header">
       <div class="header-decor left">
-        <span class="blinking-dot"></span> COIN 2P
+        <span class="blood-pulse-dot"></span> THREE.JS 3D ENGINE • 60 FPS
       </div>
-      <h1 class="logo-title">FATAL <span class="accent-text">STRIKE</span></h1>
+      <h1 class="logo-title">FATAL <span class="blood-text">STRIKE</span> <span class="edition-sub">MK1 3D</span></h1>
       <div class="header-decor right">
-        <button id="btn-toggle-sound" class="btn-icon" title="Sonido On/Off">🔊 SONIDO</button>
+        <button id="btn-toggle-sound" class="btn-icon" title="Sonido On/Off">🔊 AUDIO</button>
+        <button id="btn-open-movelist" class="btn-icon accent-blood" title="Lista de Movimientos y Fatalities">💀 KOMBOS & FATALITY</button>
         <button id="btn-toggle-controls" class="btn-icon" title="Ver Controles">🎮 CONTROLES</button>
+        <button id="btn-pause-menu" class="btn-icon" title="Pausar Combate (ESC)">⏸️ PAUSA [ESC]</button>
       </div>
     </header>
 
-    <!-- Main Game Frame -->
+    <!-- Contenedor Principal de Vista 3D WebGL -->
     <div class="game-viewport-container" id="viewport-container">
       
-      <!-- Canvas Principal -->
-      <canvas id="gameCanvas" width="1024" height="576"></canvas>
+      <!-- Contenedor donde Three.js inyecta el Canvas WebGL 3D -->
+      <div id="webgl-container"></div>
 
-      <!-- Arcade HUD Overlay (In-Fight UI) -->
+      <!-- Bandas Cinemáticas Negras (Letterbox para Fatal Blow y Fatality) -->
+      <div id="cinematic-bar-top" class="cinematic-bar top"></div>
+      <div id="cinematic-bar-bottom" class="cinematic-bar bottom"></div>
+
+      <!-- HUD Flotante Estilo Mortal Kombat 1 -->
       <div id="hud-overlay" class="hud-overlay hidden">
-        <!-- Player 1 HUD (Left) -->
+        <!-- P1 HUD (Izquierda) -->
         <div class="fighter-hud player1-hud">
           <div class="fighter-meta">
-            <span class="player-tag">1P</span>
-            <span id="p1-name" class="fighter-name">SHADOW NINJA</span>
+            <span class="player-tag p1-tag">1P</span>
+            <span id="p1-name" class="fighter-name">THE MIME SLASHER</span>
             <div class="round-indicators" id="p1-rounds">
-              <span class="round-dot"></span>
-              <span class="round-dot"></span>
+              <span class="skull-dot">💀</span>
+              <span class="skull-dot">💀</span>
             </div>
           </div>
-          <div class="bar-container health-container">
+          <div class="bar-container health-container slanted-p1">
             <div id="p1-health-ghost" class="bar-ghost"></div>
             <div id="p1-health-fill" class="bar-fill health-fill"></div>
             <span id="p1-health-text" class="bar-text">100%</span>
           </div>
-          <div class="bar-container energy-container">
+          <!-- Barra de Fatal Blow -->
+          <div class="bar-container energy-container slanted-p1">
             <div id="p1-energy-fill" class="bar-fill energy-fill"></div>
-            <span id="p1-energy-text" class="energy-label">ESPECIAL: 0%</span>
+            <span id="p1-energy-text" class="energy-label">FATAL BLOW: 0%</span>
           </div>
           <div id="p1-combo" class="combo-counter"></div>
         </div>
 
-        <!-- Center Match Timer -->
+        <!-- Temporizador Central e Indicador de Ronda -->
         <div class="timer-hud">
           <div class="timer-box">
             <span id="round-timer">99</span>
@@ -61,190 +74,341 @@
           <div id="round-badge" class="round-badge">ROUND 1</div>
         </div>
 
-        <!-- Player 2 HUD (Right) -->
+        <!-- P2 HUD (Derecha) -->
         <div class="fighter-hud player2-hud">
           <div class="fighter-meta">
             <div class="round-indicators" id="p2-rounds">
-              <span class="round-dot"></span>
-              <span class="round-dot"></span>
+              <span class="skull-dot">💀</span>
+              <span class="skull-dot">💀</span>
             </div>
-            <span id="p2-name" class="fighter-name">CYBER BRAWLER</span>
-            <span class="player-tag">2P</span>
+            <span id="p2-name" class="fighter-name">THE DANCING TERROR</span>
+            <span class="player-tag p2-tag">2P</span>
           </div>
-          <div class="bar-container health-container">
+          <div class="bar-container health-container slanted-p2">
             <div id="p2-health-ghost" class="bar-ghost"></div>
             <div id="p2-health-fill" class="bar-fill health-fill"></div>
             <span id="p2-health-text" class="bar-text">100%</span>
           </div>
-          <div class="bar-container energy-container">
+          <!-- Barra de Fatal Blow P2 -->
+          <div class="bar-container energy-container slanted-p2">
             <div id="p2-energy-fill" class="bar-fill energy-fill"></div>
-            <span id="p2-energy-text" class="energy-label">ESPECIAL: 0%</span>
+            <span id="p2-energy-text" class="energy-label">FATAL BLOW: 0%</span>
           </div>
           <div id="p2-combo" class="combo-counter"></div>
         </div>
       </div>
 
-      <!-- Announcer Text Overlay (Round 1, FIGHT, K.O., etc.) -->
+      <!-- Superposición de Textos de Anunciador Cinemático (Round, Fight, Finish Him, Fatality) -->
       <div id="announcer-overlay" class="announcer-overlay hidden">
         <h2 id="announcer-title" class="announcer-text">ROUND 1</h2>
-        <p id="announcer-subtitle" class="announcer-sub">READY...</p>
+        <p id="announcer-subtitle" class="announcer-sub">FIGHT!</p>
+        <div id="fatality-timer-bar" class="fatality-timer-bar hidden">
+          <div id="fatality-timer-fill" class="fatality-timer-fill"></div>
+          <span id="fatality-timer-text">TIEMPO FATALITY: 5.0s</span>
+        </div>
       </div>
 
-      <!-- Character Selection Screen Overlay -->
+      <!-- Pantalla de Selección de Personajes 3D -->
       <div id="select-screen" class="screen-overlay">
         <div class="select-header">
-          <h2 class="select-title">SELECCIÓN DE LUCHADORES</h2>
-          <p class="select-hint">Elige a tu guerrero usando los botones o los controles</p>
+          <h2 class="select-title">ELIGE TU LUCHADOR 3D</h2>
+          <p class="select-hint">Navega con [A/D] y [←/→] o haz clic. Pulsa [F] o [K] para marcar LISTO.</p>
         </div>
 
         <div class="selection-arena">
-          <!-- P1 Select Card -->
+          <!-- Tarjeta P1 -->
           <div class="select-panel p1-selection">
             <div class="player-badge-panel p1">JUGADOR 1</div>
-            <div class="preview-box">
-              <canvas id="p1-preview-canvas" width="220" height="240"></canvas>
+            <div class="preview-box-3d" id="p1-preview-3d">
+              <!-- Render 3D Three.js en tiempo real -->
             </div>
-            <div id="p1-char-info" class="char-details">
-              <h3 id="p1-selected-name" class="char-title">SHADOW NINJA</h3>
-              <p id="p1-selected-desc" class="char-desc">Rápido y letal con ataques en sombra.</p>
+            <div class="char-details">
+              <h3 id="p1-selected-name" class="char-title">THE MIME SLASHER</h3>
+              <span id="p1-selected-skin" class="skin-tag">SKIN: ART THE CLOWN</span>
+              <p id="p1-selected-desc" class="char-desc">El mimo sádico monocromático. Cuchilladas feroces y martillazos aplastantes.</p>
               <div class="stats-bars">
                 <div class="stat-row">
                   <span>VELOCIDAD</span>
-                  <div class="stat-track"><div id="p1-stat-speed" class="stat-fill" style="width: 90%;"></div></div>
+                  <div class="stat-track"><div id="p1-stat-speed" class="stat-fill" style="width: 85%;"></div></div>
                 </div>
                 <div class="stat-row">
-                  <span>FUERZA</span>
-                  <div class="stat-track"><div id="p1-stat-power" class="stat-fill" style="width: 65%;"></div></div>
+                  <span>LETALIDAD</span>
+                  <div class="stat-track"><div id="p1-stat-power" class="stat-fill" style="width: 90%;"></div></div>
                 </div>
                 <div class="stat-row">
-                  <span>DEFENSA</span>
-                  <div class="stat-track"><div id="p1-stat-defense" class="stat-fill" style="width: 60%;"></div></div>
+                  <span>RESISTENCIA</span>
+                  <div class="stat-track"><div id="p1-stat-defense" class="stat-fill" style="width: 70%;"></div></div>
                 </div>
               </div>
             </div>
-            <div class="char-buttons-row" id="p1-char-buttons">
-              <!-- Botones generados dinámicamente -->
-            </div>
-            <button id="p1-ready-btn" class="btn-ready">¡LISTO P1! (F / ENTER)</button>
+            <div class="char-buttons-row" id="p1-char-buttons"></div>
+            <button id="p1-ready-btn" class="btn-ready">¡LISTO P1! [F / ENTER]</button>
           </div>
 
-          <!-- VS Middle Graphic -->
+          <!-- Divisor VS Central -->
           <div class="vs-divider">
             <div class="vs-circle">VS</div>
             <button id="btn-start-fight" class="btn-fight-start" disabled>¡A PELEAR!</button>
+            <button id="btn-quick-movelist" class="btn-sub-movelist">📖 VER KOMBOS</button>
           </div>
 
-          <!-- P2 Select Card -->
+          <!-- Tarjeta P2 -->
           <div class="select-panel p2-selection">
             <div class="player-badge-panel p2">JUGADOR 2</div>
-            <div class="preview-box">
-              <canvas id="p2-preview-canvas" width="220" height="240"></canvas>
+            <div class="preview-box-3d" id="p2-preview-3d">
+              <!-- Render 3D Three.js en tiempo real -->
             </div>
-            <div id="p2-char-info" class="char-details">
-              <h3 id="p2-selected-name" class="char-title">CYBER BRAWLER</h3>
-              <p id="p2-selected-desc" class="char-desc">Equilibrado con tecnología iónica.</p>
+            <div class="char-details">
+              <h3 id="p2-selected-name" class="char-title">THE DANCING TERROR</h3>
+              <span id="p2-selected-skin" class="skin-tag">SKIN: PENNYWISE</span>
+              <p id="p2-selected-desc" class="char-desc">El payaso ancestral cósmico. Globos carmesí explosivos, teletransporte e ilusiones.</p>
               <div class="stats-bars">
                 <div class="stat-row">
                   <span>VELOCIDAD</span>
-                  <div class="stat-track"><div id="p2-stat-speed" class="stat-fill" style="width: 75%;"></div></div>
+                  <div class="stat-track"><div id="p2-stat-speed" class="stat-fill" style="width: 80%;"></div></div>
                 </div>
                 <div class="stat-row">
-                  <span>FUERZA</span>
-                  <div class="stat-track"><div id="p2-stat-power" class="stat-fill" style="width: 75%;"></div></div>
+                  <span>LETALIDAD</span>
+                  <div class="stat-track"><div id="p2-stat-power" class="stat-fill" style="width: 85%;"></div></div>
                 </div>
                 <div class="stat-row">
-                  <span>DEFENSA</span>
+                  <span>RESISTENCIA</span>
                   <div class="stat-track"><div id="p2-stat-defense" class="stat-fill" style="width: 75%;"></div></div>
                 </div>
               </div>
             </div>
-            <div class="char-buttons-row" id="p2-char-buttons">
-              <!-- Botones generados dinámicamente -->
-            </div>
-            <button id="p2-ready-btn" class="btn-ready">¡LISTO P2! (K / ENTER)</button>
+            <div class="char-buttons-row" id="p2-char-buttons"></div>
+            <button id="p2-ready-btn" class="btn-ready">¡LISTO P2! [K / ENTER]</button>
           </div>
         </div>
       </div>
 
-      <!-- Victory / Match Over Overlay -->
+      <!-- Pantalla de Victoria / Fin del Combate 3D -->
       <div id="match-over-screen" class="screen-overlay hidden">
         <div class="match-over-card">
-          <div class="winner-trophy">🏆</div>
-          <h2 id="match-winner-title" class="winner-title">¡JUGADOR 1 GANA!</h2>
-          <p id="match-winner-subtitle" class="winner-subtitle">DOMINIO TOTAL DEL COMBATE</p>
-          <div class="winner-avatar-container">
-            <canvas id="winner-canvas" width="200" height="220"></canvas>
-          </div>
+          <div class="winner-trophy blood-skull">💀</div>
+          <h2 id="match-winner-title" class="winner-title">¡FATALITY!</h2>
+          <p id="match-winner-subtitle" class="winner-subtitle">THE MIME SLASHER WINS</p>
           <div class="match-over-actions">
-            <button id="btn-rematch" class="btn-action primary">⚔️ REVANCHA INMEDIATA</button>
+            <button id="btn-rematch" class="btn-action primary">⚔️ REVANCHA 3D</button>
             <button id="btn-change-fighters" class="btn-action secondary">👥 CAMBIAR LUCHADORES</button>
           </div>
         </div>
       </div>
 
-      <!-- Controls Modal / Overlay -->
-      <div id="controls-modal" class="modal-backdrop hidden">
-        <div class="modal-card">
+      <!-- Menú de Pausa Interactivo (Tecla ESC) -->
+      <div id="pause-modal" class="modal-backdrop hidden">
+        <div class="modal-card pause-card">
           <div class="modal-header">
-            <h3>GUÍA DE CONTROLES ARCADE</h3>
-            <button id="btn-close-controls" class="btn-close">&times;</button>
+            <h3>⏸️ COMBATE PAUSADO</h3>
           </div>
-          <div class="modal-body controls-grid">
-            <div class="control-column p1-col">
-              <h4>JUGADOR 1 (AZUL / IZQ)</h4>
-              <ul class="control-list">
-                <li><kbd>W</kbd> <span>Saltar</span></li>
-                <li><kbd>A</kbd> / <kbd>D</kbd> <span>Moverse Izquierda / Derecha</span></li>
-                <li><kbd>S</kbd> <span>Agacharse / Bloquear</span></li>
-                <li><kbd>F</kbd> <span>Puño Rápido (Lanza ataque frontal rápido)</span></li>
-                <li><kbd>G</kbd> <span>Patada Fuerte (Mayor daño y retroceso)</span></li>
-                <li><kbd>H</kbd> <span>Ataque Especial (Requiere 100% de Energía)</span></li>
-              </ul>
+          <div class="modal-body pause-body">
+            <p class="pause-tagline">El torneo se ha detenido temporalmente</p>
+            <div class="pause-actions">
+              <button id="btn-pause-resume" class="btn-action primary">▶️ REANUDAR COMBATE [ESC]</button>
+              <button id="btn-pause-restart" class="btn-action secondary">🔄 REINICIAR PELEA</button>
+              <button id="btn-pause-movelist" class="btn-action secondary">📖 LISTA DE MOVIMIENTOS</button>
+              <button id="btn-pause-select" class="btn-action secondary">👥 SELECCIÓN DE PERSONAJES</button>
             </div>
-            <div class="control-column p2-col">
-              <h4>JUGADOR 2 (ROJO / DER)</h4>
-              <ul class="control-list">
-                <li><kbd>↑</kbd> <span>Saltar</span></li>
-                <li><kbd>←</kbd> / <kbd>→</kbd> <span>Moverse Izquierda / Derecha</span></li>
-                <li><kbd>↓</kbd> <span>Agacharse / Bloquear</span></li>
-                <li><kbd>K</kbd> <span>Puño Rápido</span></li>
-                <li><kbd>L</kbd> <span>Patada Fuerte</span></li>
-                <li><kbd>Ñ</kbd> / <kbd>;</kbd> / <kbd>P</kbd> <span>Ataque Especial (Requiere 100% Energía)</span></li>
-              </ul>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <p>💡 Consejo: Al agacharte o mantener la dirección contraria al rival, reduces en un 80% el daño recibido y resistes el empuje.</p>
           </div>
         </div>
       </div>
 
-      <!-- CRT Scanline Effect (Toggleable) -->
+      <!-- Modal de Lista de Movimientos, Especiales y Fatalities (Command List) -->
+      <div id="movelist-modal" class="modal-backdrop hidden">
+        <div class="modal-card movelist-card">
+          <div class="modal-header">
+            <h3>💀 GUÍA DE MOVIMIENTOS ESPECIALES & FATALITIES 3D</h3>
+            <button id="btn-close-movelist" class="btn-close">&times;</button>
+          </div>
+          <div class="modal-tabs">
+            <button class="tab-btn active" data-tab="tab-mime">THE MIME SLASHER (ART)</button>
+            <button class="tab-btn" data-tab="tab-penny">THE DANCING TERROR (PENNYWISE)</button>
+            <button class="tab-btn" data-tab="tab-freddy">THE DREAM STALKER (FREDDY)</button>
+          </div>
+          <div class="modal-body movelist-content">
+            <!-- Art the Clown -->
+            <div id="tab-mime" class="tab-pane active">
+              <div class="move-section">
+                <h4>3 MOVIMIENTOS ESPECIALES ÚNICOS</h4>
+                <div class="move-row">
+                  <span class="move-name">1. Cuchillada Letal</span>
+                  <span class="move-keys"><kbd>S</kbd> + <kbd>D</kbd> + <kbd>F</kbd> (P1) | <kbd>↓</kbd> + <kbd>→</kbd> + <kbd>K</kbd> (P2)</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">2. Estocada Oscura (Cuchilla arrojadiza)</span>
+                  <span class="move-keys"><kbd>A</kbd> + <kbd>D</kbd> + <kbd>F</kbd> (P1) | <kbd>←</kbd> + <kbd>→</kbd> + <kbd>K</kbd> (P2)</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">3. Martillazo Sísmico (Onda de choque)</span>
+                  <span class="move-keys"><kbd>S</kbd> + <kbd>S</kbd> + <kbd>G</kbd> (P1) | <kbd>↓</kbd> + <kbd>↓</kbd> + <kbd>L</kbd> (P2)</span>
+                </div>
+              </div>
+              <div class="move-section">
+                <h4>CINEMÁTICA FATAL BLOW & KOMBOS</h4>
+                <div class="move-row">
+                  <span class="move-name">Láser Sádico Perforante (Fatal Blow)</span>
+                  <span class="move-keys"><kbd>H</kbd> (P1) o <kbd>P</kbd> (P2) al 100% de Barra</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">Kombo Carnicería 3D (3 Hits)</span>
+                  <span class="move-keys"><kbd>F</kbd> &rarr; <kbd>F</kbd> &rarr; <kbd>G</kbd> (P1) | <kbd>K</kbd> &rarr; <kbd>K</kbd> &rarr; <kbd>L</kbd> (P2)</span>
+                </div>
+              </div>
+              <div class="move-section fatality-highlight">
+                <h4>🩸 FATALITY CINEMÁTICA 3D (En "FINISH HIM!")</h4>
+                <div class="move-row">
+                  <span class="move-name">DECAPITACIÓN CON CUCHILLO DE CARNICERO</span>
+                  <span class="move-keys blood-keys">P1: <kbd>S</kbd> &rarr; <kbd>S</kbd> &rarr; <kbd>G</kbd> | P2: <kbd>↓</kbd> &rarr; <kbd>↓</kbd> &rarr; <kbd>L</kbd></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pennywise -->
+            <div id="tab-penny" class="tab-pane">
+              <div class="move-section">
+                <h4>3 MOVIMIENTOS ESPECIALES ÚNICOS</h4>
+                <div class="move-row">
+                  <span class="move-name">1. Trampa de Globo Carmesí</span>
+                  <span class="move-keys"><kbd>S</kbd> + <kbd>D</kbd> + <kbd>F</kbd> (P1) | <kbd>↓</kbd> + <kbd>→</kbd> + <kbd>K</kbd> (P2)</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">2. Ilusión de Terror (Teletransporte)</span>
+                  <span class="move-keys"><kbd>A</kbd> + <kbd>D</kbd> + <kbd>G</kbd> (P1) | <kbd>←</kbd> + <kbd>→</kbd> + <kbd>L</kbd> (P2)</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">3. Risa Asfixiante (Aturdimiento sónico)</span>
+                  <span class="move-keys"><kbd>S</kbd> + <kbd>S</kbd> + <kbd>F</kbd> (P1) | <kbd>↓</kbd> + <kbd>↓</kbd> + <kbd>K</kbd> (P2)</span>
+                </div>
+              </div>
+              <div class="move-section">
+                <h4>CINEMÁTICA FATAL BLOW & KOMBOS</h4>
+                <div class="move-row">
+                  <span class="move-name">Globo Cósmico Perforante (Fatal Blow)</span>
+                  <span class="move-keys"><kbd>H</kbd> (P1) o <kbd>P</kbd> (P2) al 100% de Barra</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">Danza de los Muertos (3 Hits)</span>
+                  <span class="move-keys"><kbd>F</kbd> &rarr; <kbd>F</kbd> &rarr; <kbd>G</kbd> (P1) | <kbd>K</kbd> &rarr; <kbd>K</kbd> &rarr; <kbd>L</kbd> (P2)</span>
+                </div>
+              </div>
+              <div class="move-section fatality-highlight">
+                <h4>🩸 FATALITY CINEMÁTICA 3D (En "FINISH HIM!")</h4>
+                <div class="move-row">
+                  <span class="move-name">GLOBO GIGANTE DEVORADOR DE ALMAS</span>
+                  <span class="move-keys blood-keys">P1: <kbd>A</kbd> &rarr; <kbd>D</kbd> &rarr; <kbd>H</kbd> | P2: <kbd>←</kbd> &rarr; <kbd>→</kbd> &rarr; <kbd>P</kbd></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Freddy Krueger -->
+            <div id="tab-freddy" class="tab-pane">
+              <div class="move-section">
+                <h4>3 MOVIMIENTOS ESPECIALES ÚNICOS</h4>
+                <div class="move-row">
+                  <span class="move-name">1. Garra de Pesadilla (Tajo ascendente)</span>
+                  <span class="move-keys"><kbd>S</kbd> + <kbd>D</kbd> + <kbd>F</kbd> (P1) | <kbd>↓</kbd> + <kbd>→</kbd> + <kbd>K</kbd> (P2)</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">2. Teletransportación Subterránea</span>
+                  <span class="move-keys"><kbd>S</kbd> + <kbd>S</kbd> + <kbd>G</kbd> (P1) | <kbd>↓</kbd> + <kbd>↓</kbd> + <kbd>L</kbd> (P2)</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">3. Estocada Onírica con Chispas de Fuego</span>
+                  <span class="move-keys"><kbd>A</kbd> + <kbd>D</kbd> + <kbd>F</kbd> (P1) | <kbd>←</kbd> + <kbd>→</kbd> + <kbd>K</kbd> (P2)</span>
+                </div>
+              </div>
+              <div class="move-section">
+                <h4>CINEMÁTICA FATAL BLOW & KOMBOS</h4>
+                <div class="move-row">
+                  <span class="move-name">Zarpazo de Caldera Ígneo (Fatal Blow)</span>
+                  <span class="move-keys"><kbd>H</kbd> (P1) o <kbd>P</kbd> (P2) al 100% de Barra</span>
+                </div>
+                <div class="move-row">
+                  <span class="move-name">Cuchillas de Elm Street (3 Hits)</span>
+                  <span class="move-keys"><kbd>F</kbd> &rarr; <kbd>F</kbd> &rarr; <kbd>G</kbd> (P1) | <kbd>K</kbd> &rarr; <kbd>K</kbd> &rarr; <kbd>L</kbd> (P2)</span>
+                </div>
+              </div>
+              <div class="move-section fatality-highlight">
+                <h4>🩸 FATALITY CINEMÁTICA 3D (En "FINISH HIM!")</h4>
+                <div class="move-row">
+                  <span class="move-name">GARRA CRUZADA ATRAVESADORA DE PECHO</span>
+                  <span class="move-keys blood-keys">P1: <kbd>S</kbd> &rarr; <kbd>D</kbd> &rarr; <kbd>F</kbd> | P2: <kbd>↓</kbd> &rarr; <kbd>→</kbd> &rarr; <kbd>K</kbd></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <p>💡 Tip: Para activar la Fatality, introduce la secuencia en los 5 segundos que dura "FINISH HIM!".</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Controles -->
+      <div id="controls-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>GUÍA DE CONTROLES ARCADE 3D</h3>
+            <button id="btn-close-controls" class="btn-close">&times;</button>
+          </div>
+          <div class="modal-body controls-grid">
+            <div class="control-column p1-col">
+              <h4>JUGADOR 1 (AZUL / IZQUIERDA)</h4>
+              <ul class="control-list">
+                <li><kbd>W</kbd> <span>Saltar</span></li>
+                <li><kbd>A</kbd> / <kbd>D</kbd> <span>Moverse Izq / Der</span></li>
+                <li><kbd>S</kbd> <span>Agacharse / Bloquear (80% daño reducido)</span></li>
+                <li><kbd>F</kbd> <span>Puño / Cuchillada Rápida</span></li>
+                <li><kbd>G</kbd> <span>Patada / Golpe Pesado</span></li>
+                <li><kbd>H</kbd> <span>Fatal Blow / Especial Cinemático (100% Barra)</span></li>
+              </ul>
+            </div>
+            <div class="control-column p2-col">
+              <h4>JUGADOR 2 (ROJO / DERECHA)</h4>
+              <ul class="control-list">
+                <li><kbd>↑</kbd> <span>Saltar</span></li>
+                <li><kbd>←</kbd> / <kbd>→</kbd> <span>Moverse Izq / Der</span></li>
+                <li><kbd>↓</kbd> <span>Agacharse / Bloquear</span></li>
+                <li><kbd>K</kbd> <span>Puño / Cuchillada Rápida</span></li>
+                <li><kbd>L</kbd> <span>Patada / Golpe Pesado</span></li>
+                <li><kbd>Ñ</kbd> / <kbd>;</kbd> / <kbd>P</kbd> <span>Fatal Blow / Especial Cinemático</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <p>💡 Presiona ESC en cualquier momento para abrir el Menú de Pausa. Presiona F2 para ver Hitboxes.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viñeta Sangrienta Cinemática y Flash -->
       <div class="scanlines-layer"></div>
+      <div id="blood-vignette" class="blood-vignette"></div>
+      <div id="cinematic-flash" class="cinematic-flash"></div>
     </div>
 
-    <!-- Bottom Controls Reference Legend Bar -->
+    <!-- Barra Inferior de Referencia de Teclas -->
     <footer class="controls-legend-bar">
       <div class="legend-group p1">
-        <strong class="tag">1P:</strong>
-        <span>[W,A,S,D] Movimiento/Bloqueo</span> |
+        <strong class="tag p1">P1:</strong>
+        <span>[W,A,S,D] Mover/Bloqueo</span> |
         <span>[F] Puño</span> |
         <span>[G] Patada</span> |
-        <span class="special-tag">[H] Especial</span>
+        <span class="special-tag">[H] Fatal Blow</span> |
+        <span class="kombo-tag">[F+F+G] Kombo</span>
       </div>
-      <div class="legend-divider">⚡</div>
+      <div class="legend-divider">💀</div>
       <div class="legend-group p2">
-        <strong class="tag">2P:</strong>
-        <span>[Flechas] Movimiento/Bloqueo</span> |
+        <strong class="tag p2">P2:</strong>
+        <span>[Flechas] Mover/Bloqueo</span> |
         <span>[K] Puño</span> |
         <span>[L] Patada</span> |
-        <span class="special-tag">[Ñ / ; / P] Especial</span>
+        <span class="special-tag">[Ñ/;/P] Fatal Blow</span> |
+        <span class="kombo-tag">[K+K+L] Kombo</span>
       </div>
     </footer>
   </div>
 
-  <!-- Game Logic Script -->
   <script src="game.js"></script>
 </body>
 </html>
-
