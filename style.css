@@ -358,10 +358,11 @@ body {
   position: absolute;
   top: 0;
   height: 100%;
-  background: var(--health-ghost);
+  background: #ea580c;
   width: 100%;
-  transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-  transition-delay: 0.3s;
+  transition: width 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.7);
+  z-index: 1;
 }
 
 .player1-hud .bar-ghost { left: 0; }
@@ -372,21 +373,50 @@ body {
   top: 0;
   height: 100%;
   width: 100%;
-  transition: width 0.15s ease-out;
+  z-index: 2;
+  transition: width 0.12s ease-out, background 0.3s ease, filter 0.15s ease;
 }
 
 .player1-hud .health-fill {
   left: 0;
-  background: linear-gradient(90deg, #10b981 0%, #eab308 55%, #ef4444 100%);
-  background-size: 200% 100%;
-  background-position: 100% 0;
+  background: linear-gradient(90deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
 }
 
 .player2-hud .health-fill {
   right: 0;
-  background: linear-gradient(270deg, #10b981 0%, #eab308 55%, #ef4444 100%);
-  background-size: 200% 100%;
-  background-position: 100% 0;
+  background: linear-gradient(270deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
+}
+
+/* Cambios dinámicos de color al ser herido */
+.player1-hud .health-fill.hp-high,
+.player2-hud .health-fill.hp-high {
+  background: linear-gradient(90deg, #059669, #10b981) !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.8) !important;
+}
+
+.player1-hud .health-fill.hp-mid,
+.player2-hud .health-fill.hp-mid {
+  background: linear-gradient(90deg, #d97706, #f59e0b) !important;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.85) !important;
+}
+
+.player1-hud .health-fill.hp-low,
+.player2-hud .health-fill.hp-low {
+  background: linear-gradient(90deg, #991b1b, #ef4444) !important;
+  box-shadow: 0 0 22px rgba(239, 68, 68, 1) !important;
+  animation: healthLowPulse 0.55s infinite alternate !important;
+}
+
+@keyframes healthLowPulse {
+  0% { filter: brightness(1) drop-shadow(0 0 6px #ef4444); }
+  100% { filter: brightness(1.35) drop-shadow(0 0 14px #ff0000); }
+}
+
+.health-fill.hit-flash {
+  filter: brightness(2.6) contrast(1.2) !important;
+  transition: none !important;
 }
 
 .bar-text {
@@ -608,6 +638,41 @@ body {
   color: #fff;
   letter-spacing: 1px;
   text-shadow: 0 1px 3px #000;
+}
+
+.btn-fatality-trigger {
+  margin-top: 14px;
+  pointer-events: auto !important;
+  cursor: pointer;
+  background: linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%);
+  color: #fff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  padding: 12px 26px;
+  border: 2px solid #ef4444;
+  border-radius: 6px;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.8), inset 0 0 10px rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  animation: fatalityBtnPulse 0.7s infinite alternate;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  z-index: 35;
+}
+
+.btn-fatality-trigger:hover {
+  transform: scale(1.08);
+  background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+  box-shadow: 0 0 45px rgba(239, 68, 68, 1);
+}
+
+.btn-fatality-trigger.hidden {
+  display: none !important;
+}
+
+@keyframes fatalityBtnPulse {
+  0% { transform: scale(1); box-shadow: 0 0 20px rgba(220, 38, 38, 0.7); }
+  100% { transform: scale(1.05); box-shadow: 0 0 35px rgba(239, 68, 68, 1); }
 }
 
 @keyframes announcerIn {

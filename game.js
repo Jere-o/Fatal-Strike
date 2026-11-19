@@ -851,6 +851,152 @@ class Character3DBuilder {
       rLowerLeg
     };
   }
+
+  static buildSeveredHead(charKey) {
+    const group = new THREE.Group();
+    let headTex;
+    if (charKey === 'mime') headTex = Character3DBuilder.createArtFaceTexture();
+    else if (charKey === 'penny') headTex = Character3DBuilder.createPennyFaceTexture();
+    else headTex = Character3DBuilder.createFreddyFaceTexture();
+
+    const headMat = new THREE.MeshStandardMaterial({ map: headTex, roughness: 0.5 });
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 24), headMat);
+    headMesh.castShadow = true;
+    group.add(headMesh);
+
+    // Muñón ensangrentado en la base de la cabeza
+    const neckStump = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.15, 0.16, 12),
+      new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.3 })
+    );
+    neckStump.position.y = -0.32;
+    group.add(neckStump);
+
+    // Accesorios específicos de la cabeza decapitada
+    if (charKey === 'mime') {
+      const hatGroup = new THREE.Group();
+      hatGroup.position.set(0.14, 0.34, 0);
+      hatGroup.rotation.z = -0.28;
+      const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.03, 16), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+      const hatCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.26, 14), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+      hatCrown.position.y = 0.13;
+      hatGroup.add(hatBrim, hatCrown);
+      group.add(hatGroup);
+    } else if (charKey === 'penny') {
+      const hairMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.6 });
+      const hairL = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 12), hairMat);
+      hairL.position.set(-0.32, 0.16, -0.06);
+      hairL.scale.set(1.1, 1.4, 1.0);
+      const hairR = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 12), hairMat);
+      hairR.position.set(0.32, 0.16, -0.06);
+      hairR.scale.set(1.1, 1.4, 1.0);
+      group.add(hairL, hairR);
+    } else if (charKey === 'freddy') {
+      const fedoraMat = new THREE.MeshStandardMaterial({ color: 0x3d1a04, roughness: 0.75 });
+      const fedoraCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.24, 14), fedoraMat);
+      fedoraCrown.position.y = 0.34;
+      const fedoraBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.04, 18), fedoraMat);
+      fedoraBrim.position.y = 0.22;
+      group.add(fedoraCrown, fedoraBrim);
+    }
+    return group;
+  }
+
+  static buildDemonMaw() {
+    const jaw = new THREE.Group();
+    const matFang = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.2 });
+    const matGore = new THREE.MeshBasicMaterial({ color: 0x450a0a });
+
+    const mouthBack = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12, 0, Math.PI), matGore);
+    mouthBack.rotation.x = -Math.PI / 2;
+    jaw.add(mouthBack);
+
+    // 3 filas concéntricas de colmillos de aguja
+    for (let r = 0; r < 3; r++) {
+      const radius = 0.16 + r * 0.07;
+      const count = 10 + r * 4;
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2;
+        const fang = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.16, 4), matFang);
+        fang.position.set(Math.cos(ang) * radius, Math.sin(ang) * radius, 0.08);
+        fang.rotation.z = ang - Math.PI / 2;
+        fang.rotation.x = Math.PI / 2;
+        jaw.add(fang);
+      }
+    }
+    return jaw;
+  }
+
+  static buildGoreRibsStump() {
+    const stump = new THREE.Group();
+    const matBone = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.4 });
+    const matBlood = new THREE.MeshStandardMaterial({ color: 0x881337, roughness: 0.2 });
+
+    const spineBone = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.6, 8), matBone);
+    spineBone.position.y = 0.3;
+    stump.add(spineBone);
+
+    for (let i = 0; i < 4; i++) {
+      const ribL = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.028, 6, 12, Math.PI * 0.65), matBone);
+      ribL.position.set(-0.1, 0.15 + i * 0.1, 0);
+      ribL.rotation.y = Math.PI * 0.25;
+      const ribR = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.028, 6, 12, Math.PI * 0.65), matBone);
+      ribR.position.set(0.1, 0.15 + i * 0.1, 0);
+      ribR.rotation.y = -Math.PI * 0.25;
+      stump.add(ribL, ribR);
+    }
+
+    const goreMeat = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 10), matBlood);
+    goreMeat.position.y = 0.15;
+    stump.add(goreMeat);
+
+    return stump;
+  }
+
+  static buildFurnaceGrate() {
+    const grate = new THREE.Group();
+    const matRusty = new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.9, metalness: 0.7 });
+    const matFire = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 2.4), matRusty);
+    frame.position.y = 0.04;
+    grate.add(frame);
+
+    const pit = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 2.1), matFire);
+    pit.rotation.x = -Math.PI / 2;
+    pit.position.y = 0.03;
+    grate.add(pit);
+
+    const light = new THREE.PointLight(0xff4400, 3, 6);
+    light.position.set(0, 0.4, 0);
+    grate.add(light);
+
+    const doorL = new THREE.Group();
+    doorL.position.set(-1.0, 0.06, 0);
+    const doorR = new THREE.Group();
+    doorR.position.set(1.0, 0.06, 0);
+
+    for (let b = 0; b < 6; b++) {
+      const barL = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.0, 6), matRusty);
+      barL.position.set(0.18 + b * 0.16, 0, 0);
+      doorL.add(barL);
+      const barR = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.0, 6), matRusty);
+      barR.position.set(-0.18 - b * 0.16, 0, 0);
+      doorR.add(barR);
+    }
+    grate.add(doorL, doorR);
+
+    grate.openDoor = () => {
+      gsap.to(doorL.rotation, { z: -Math.PI * 0.45, duration: 0.35, ease: 'power2.out' });
+      gsap.to(doorR.rotation, { z: Math.PI * 0.45, duration: 0.35, ease: 'power2.out' });
+    };
+    grate.closeDoor = () => {
+      gsap.to(doorL.rotation, { z: 0, duration: 0.15, ease: 'bounce.out' });
+      gsap.to(doorR.rotation, { z: 0, duration: 0.15, ease: 'bounce.out' });
+    };
+
+    return grate;
+  }
 }
 
 // ============================================================================
@@ -893,10 +1039,13 @@ class Fighter3D {
     this.attackBox = {
       x: 0,
       y: 0,
-      width: 1.4,
+      width: 1.5,
       height: 1.0,
+      reach: 1.5,
+      offsetY: 1.1,
       active: false,
       damage: 0,
+      baseKnockback: 0.2,
       knockback: 0,
       type: 'punch'
     };
@@ -940,26 +1089,47 @@ class Fighter3D {
       this.model.headGroup.rotation.set(0, 0, 0);
     }
     this.mesh.position.set(this.x, this.y, this.z);
+    this.updateAttackBox();
   }
 
   registerInput(code) {
     const now = Date.now();
     this.inputBuffer.push({ code, time: now });
-    this.inputBuffer = this.inputBuffer.filter(i => now - i.time <= 650);
+    // Guardar los últimos comandos en una ventana de 1.0 segundo
+    this.inputBuffer = this.inputBuffer.filter(i => now - i.time <= 1000).slice(-16);
   }
 
-  // Comprobación de secuencia comprimiendo repeticiones inmediatas
+  // Comprobación de secuencias robusta estilo arcade
   checkSequence(seq) {
-    if (this.inputBuffer.length < seq.length) return false;
-    const compressed = [];
-    for (const item of this.inputBuffer) {
-      if (compressed.length === 0 || compressed[compressed.length - 1] !== item.code) {
-        compressed.push(item.code);
+    if (!seq || seq.length === 0 || this.inputBuffer.length < seq.length) return false;
+    const now = Date.now();
+    const lastItem = this.inputBuffer[this.inputBuffer.length - 1];
+    // La última tecla de la secuencia debe ser reciente (últimos 400ms) y coincidir con el ataque final
+    if (!lastItem || now - lastItem.time > 400) return false;
+    if (lastItem.code !== seq[seq.length - 1]) return false;
+
+    // Buscar hacia atrás en el buffer que aparezcan todos los inputs en orden
+    let seqIdx = seq.length - 1;
+    for (let i = this.inputBuffer.length - 1; i >= 0; i--) {
+      if (this.inputBuffer[i].code === seq[seqIdx]) {
+        seqIdx--;
+        if (seqIdx < 0) return true;
       }
     }
-    if (compressed.length < seq.length) return false;
-    const recent = compressed.slice(-seq.length);
-    return seq.every((val, idx) => val === recent[idx]);
+    return false;
+  }
+
+  updateAttackBox() {
+    if (!this.attackBox || !this.attackBox.active) return;
+    const reach = this.attackBox.reach || 1.6;
+    if (this.facing === 1) {
+      this.attackBox.x = this.x + 0.15;
+    } else {
+      this.attackBox.x = this.x - 0.15 - reach;
+    }
+    this.attackBox.width = reach;
+    this.attackBox.y = this.y + (this.attackBox.offsetY || 1.0);
+    this.attackBox.knockback = (this.attackBox.baseKnockback || 0.25) * this.facing;
   }
 
   handleInput(input, opponent) {
@@ -1094,11 +1264,46 @@ class Fighter3D {
       return;
     }
 
-    // Fatal Blow con barra al 100%
-    if (input.special && this.energy >= this.maxEnergy) {
+    // Activación de Fatal Blow si está disponible (100% Energía o Salud <= 35%)
+    const wantsPunchKick = input.punch && input.kick;
+    if ((input.special || wantsPunchKick) && this.canUseFatalBlow()) {
       this.startFatalBlowCinematic(opponent);
       return;
     }
+
+    // Activación de Especiales directos según dirección
+    if (input.special) {
+      if (input.down) {
+        if (this.characterKey === 'mime') {
+          this.executeSpecialMove(3, '¡MARTILLAZO SÍSMICO!', 135, 0.5, opponent);
+        } else if (this.characterKey === 'penny') {
+          this.executeSpecialMove(3, '¡RISA ASFIXIANTE!', 125, 0.4, opponent);
+        } else if (this.characterKey === 'freddy') {
+          this.executeSpecialMove(2, '¡TELETRANSPORTE ÍGNEO!', 95, 0.25, opponent);
+        }
+      } else if (input.left || input.right) {
+        if (this.characterKey === 'mime') {
+          this.executeSpecialMove(2, '¡ESTOCADA OSCURA!', 120, 0.4, opponent);
+        } else if (this.characterKey === 'penny') {
+          this.executeSpecialMove(2, '¡ILUSIÓN DE TERROR!', 90, 0.2, opponent);
+        } else if (this.characterKey === 'freddy') {
+          this.executeSpecialMove(3, '¡ESTOCADA ONÍRICA!', 130, 0.45, opponent);
+        }
+      } else {
+        if (this.characterKey === 'mime') {
+          this.executeSpecialMove(1, '¡CUCHILLADA LETAL!', 110, 0.35, opponent);
+        } else if (this.characterKey === 'penny') {
+          this.executeSpecialMove(1, '¡TRAMPA DE GLOBO!', 115, 0.3, opponent);
+        } else if (this.characterKey === 'freddy') {
+          this.executeSpecialMove(1, '¡GARRA DE PESADILLA!', 120, 0.35, opponent);
+        }
+      }
+      return;
+    }
+  }
+
+  canUseFatalBlow() {
+    return this.energy >= this.maxEnergy || this.health <= this.maxHealth * 0.35;
   }
 
   // Ejecución de Movimiento Especial con Efectos 3D y Proyectiles
@@ -1118,16 +1323,21 @@ class Fighter3D {
         sounds.playBladeSlash();
         if (window.game) window.game.spawnBladeProjectile(this);
       } else if (moveId === 2) {
-        // Estocada Oscura: Dash veloz con tajo
-        this.vx = this.facing * 0.42;
+        // Estocada Oscura: Dash veloz con sombras fantasma y tajo
+        this.vx = this.facing * 0.44;
         sounds.playBladeSlash();
         sounds.playMetalClang();
+        if (window.game) window.game.spawnShadowDash(this);
       } else if (moveId === 3) {
-        // Martillazo Sísmico: Salto e impacto al suelo con onda expansiva
-        this.vy = 0.22;
+        // Martillazo Sísmico: Salto e impacto al suelo con onda expansiva y esquirlas
+        this.vy = 0.24;
         sounds.playAnnouncerBass();
         setTimeout(() => {
-          if (window.game) window.game.spawnShockwaveRing(this.x, FLOOR_Y + 0.02, 0xdc2626);
+          if (window.game) {
+            window.game.spawnShockwaveRing(this.x, FLOOR_Y + 0.02, 0xdc2626);
+            window.game.spawnGroundDebris(this.x, FLOOR_Y);
+            window.game.shakeCamera(0.2, 160);
+          }
         }, 180);
       }
     } else if (this.characterKey === 'penny') {
@@ -1144,7 +1354,7 @@ class Fighter3D {
         this.mesh.position.x = this.x;
         if (window.game) window.game.spawn3DBloodExplosion(this.x, 1.5, 25);
       } else if (moveId === 3) {
-        // Risa Asfixiante: Ondas sónicas concéntricas
+        // Risa Asfixiante: Ondas sónicas concéntricas y orbes cósmicos
         sounds.playLaserBeam();
         if (window.game) window.game.spawnSonicWaves(this);
       }
@@ -1154,31 +1364,32 @@ class Fighter3D {
         sounds.playBladeSlash();
         if (window.game) window.game.spawnFireClawProjectile(this);
       } else if (moveId === 2 && opponent) {
-        // Teletransportación Subterránea
+        // Teletransportación Subterránea con pilares de fuego
         sounds.playTeleport();
-        if (window.game) window.game.spawn3DFireExplosion(this.x, 0.4, 30);
+        if (window.game) window.game.spawnHellfirePillar(this.x, FLOOR_Y, 20);
         this.x = opponent.x - opponent.facing * 2.2;
         this.facing = opponent.facing;
         this.mesh.position.x = this.x;
-        if (window.game) window.game.spawn3DFireExplosion(this.x, 0.4, 30);
+        if (window.game) window.game.spawnHellfirePillar(this.x, FLOOR_Y, 20);
       } else if (moveId === 3) {
-        // Estocada Onírica: Embestida con chispas de acero
-        this.vx = this.facing * 0.4;
+        // Estocada Onírica: Embestida arrastrando garras con lluvia de chispas
+        this.vx = this.facing * 0.44;
         sounds.playBladeSlash();
         sounds.playMetalClang();
+        if (window.game) window.game.spawnFloorSparksTrail(this);
       }
     }
 
     this.attackBox = {
-      x: this.facing === 1 ? this.x + 0.5 : this.x - 1.9,
-      y: this.y + 1.2,
-      width: 1.8,
-      height: 1.3,
+      reach: 2.2,
+      offsetY: 1.1,
+      height: 1.4,
       active: true,
       damage: Math.round(damage * this.data.attackPowerMult),
-      knockback: knockback * this.facing,
+      baseKnockback: knockback,
       type: 'special'
     };
+    this.updateAttackBox();
   }
 
   executeKomboSequence(name, hits, totalDamage) {
@@ -1189,15 +1400,15 @@ class Fighter3D {
     sounds.playMetalClang();
 
     this.attackBox = {
-      x: this.facing === 1 ? this.x + 0.5 : this.x - 1.8,
-      y: this.y + 1.2,
-      width: 1.6,
-      height: 1.2,
+      reach: 1.9,
+      offsetY: 1.1,
+      height: 1.3,
       active: true,
       damage: Math.round(totalDamage * this.data.attackPowerMult),
-      knockback: 0.35 * this.facing,
+      baseKnockback: 0.35,
       type: 'kombo'
     };
+    this.updateAttackBox();
   }
 
   startPunch() {
@@ -1210,15 +1421,15 @@ class Fighter3D {
     else sounds.playPunch();
 
     this.attackBox = {
-      x: this.facing === 1 ? this.x + 0.4 : this.x - 1.5,
-      y: this.y + (this.isCrouching ? 0.8 : 1.4),
-      width: 1.3,
-      height: 0.8,
+      reach: 1.5,
+      offsetY: this.isCrouching ? 0.7 : 1.3,
+      height: 0.9,
       active: true,
       damage: Math.round(60 * this.data.attackPowerMult),
-      knockback: 0.18 * this.facing,
+      baseKnockback: 0.22,
       type: 'punch'
     };
+    this.updateAttackBox();
   }
 
   startKick() {
@@ -1232,24 +1443,24 @@ class Fighter3D {
     else sounds.playKick();
 
     this.attackBox = {
-      x: this.facing === 1 ? this.x + 0.5 : this.x - 1.7,
-      y: this.y + (this.isCrouching ? 0.6 : 1.2),
-      width: 1.5,
-      height: 0.9,
+      reach: 1.8,
+      offsetY: this.isCrouching ? 0.5 : 1.1,
+      height: 1.0,
       active: true,
       damage: Math.round(98 * this.data.attackPowerMult),
-      knockback: 0.28 * this.facing,
+      baseKnockback: 0.32,
       type: 'kick'
     };
+    this.updateAttackBox();
   }
 
   startFatalBlowCinematic(opponent) {
-    this.state = 'special';
-    this.stateTimer = 75;
+    this.state = 'fatal_blow_attacker';
     this.energy = 0;
     this.hasHitCurrentAttack = true;
     this.vx = 0;
-    sounds.playLaserBeam();
+    this.vy = 0;
+    sounds.playAnnouncerBass();
     if (window.game) {
       window.game.executeFatalBlowCinematic(this, opponent);
     }
@@ -1284,6 +1495,9 @@ class Fighter3D {
     }
 
     this.health = Math.max(0, this.health - finalDamage);
+    if (window.game) {
+      window.game.onFighterDamaged(this);
+    }
     this.vx += knockback;
     if (amount > 80 && !blocked) {
       this.vy = 0.15;
@@ -1368,6 +1582,7 @@ class Fighter3D {
 
       this.mesh.position.set(this.x, this.y, this.z);
       this.model.facingGroup.rotation.y = this.facing === 1 ? Math.PI / 2 : -Math.PI / 2;
+      this.updateAttackBox();
     }
 
     this.updateProceduralAnimations();
@@ -1379,6 +1594,9 @@ class Fighter3D {
   }
 
   updateProceduralAnimations() {
+    if (['fatality_victim', 'fatality_killer', 'fatal_blow_victim', 'fatal_blow_attacker'].includes(this.state)) {
+      return;
+    }
     const m = this.model;
     const t = this.animTime;
 
@@ -1406,14 +1624,23 @@ class Fighter3D {
       m.lForeArm.rotation.x = -1.2;
       m.rForeArm.rotation.x = -1.2;
     } else if (this.state === 'punch') {
-      m.rightArm.rotation.x = 1.5;
+      m.rightArm.rotation.x = 1.6;
       m.rForeArm.rotation.x = -0.1;
+      m.leftArm.rotation.x = 0.8;
+      m.lForeArm.rotation.x = -0.9;
+      m.spine.rotation.x = 0.15;
     } else if (this.state === 'kick') {
-      m.rightLeg.rotation.x = -1.6;
-      m.spine.rotation.x = -0.3;
+      m.rightLeg.rotation.x = 1.6; // Patada frontal hacia el oponente
+      m.leftLeg.rotation.x = -0.2;
+      m.spine.rotation.x = -0.15;
+      m.leftArm.rotation.x = 0.7;
+      m.rightArm.rotation.x = 0.5;
     } else if (this.state === 'special' || this.state === 'kombo') {
-      m.rightArm.rotation.x = 2.0;
-      m.leftArm.rotation.x = 1.4;
+      m.rightArm.rotation.x = 1.9;
+      m.rForeArm.rotation.x = 0.2;
+      m.leftArm.rotation.x = 1.3;
+      m.lForeArm.rotation.x = -0.4;
+      m.spine.rotation.x = 0.2;
     } else if (this.state === 'hurt') {
       m.spine.rotation.x = -0.5;
       m.leftArm.rotation.x = -0.4;
@@ -1672,57 +1899,240 @@ class FatalStrike3DGame {
     }
   }
 
-  // Fatal Blow Cinemático
+  // ==========================================================================
+  // FATAL BLOWS INDIVIDUALES SCRIPTADOS EN 3D (CINEMÁTICAS ÉPICAS POR LUCHADOR)
+  // ==========================================================================
   executeFatalBlowCinematic(attacker, defender) {
-    const isP1 = attacker === this.p1;
-    const beamColor = attacker.data.beamColor;
+    this.gameState = 'FATAL_BLOW_CINEMATIC';
+    attacker.state = 'fatal_blow_attacker';
+    defender.state = 'fatal_blow_victim';
+    defender.vx = 0;
+    defender.vy = 0;
 
     document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.add('active'));
 
-    const targetCamX = (attacker.x + defender.x) / 2;
-    gsap.to(this.camera.position, {
-      x: targetCamX + (isP1 ? 2.8 : -2.8),
-      y: 1.8,
-      z: 5.5,
-      duration: 0.45,
-      ease: 'power3.out'
+    sounds.playAnnouncerBass();
+    this.showAnnouncer('FATAL BLOW', attacker.data.specialName, 2000, null, true);
+
+    const flash = document.getElementById('cinematic-flash');
+    if (flash) {
+      flash.classList.add('active-white');
+      setTimeout(() => flash.classList.remove('active-white'), 180);
+    }
+
+    if (attacker.characterKey === 'mime') {
+      this.executeMimeFatalBlow(attacker, defender);
+    } else if (attacker.characterKey === 'penny') {
+      this.executePennyFatalBlow(attacker, defender);
+    } else {
+      this.executeFreddyFatalBlow(attacker, defender);
+    }
+  }
+
+  // 1. Fatal Blow de Art the Clown: "LA CARNICERÍA DE MILES COUNTY"
+  executeMimeFatalBlow(attacker, defender) {
+    const isP1 = attacker === this.p1;
+    const midX = (attacker.x + defender.x) / 2;
+
+    // Fase 1: Dash con cuchillada horizontal
+    gsap.to(this.camera.position, { x: midX, y: 1.8, z: 4.8, duration: 0.35, ease: 'power2.out' });
+    gsap.to(this.camera.rotation, { z: isP1 ? 0.08 : -0.08, duration: 0.35 });
+
+    gsap.to(attacker.mesh.position, {
+      x: defender.x - defender.facing * 0.85,
+      duration: 0.3,
+      ease: 'power3.in',
+      onComplete: () => {
+        sounds.playBladeSlash();
+        sounds.playMetalClang();
+        this.shakeCamera(0.25, 200);
+        this.spawn3DBloodExplosion(defender.x, defender.y + 1.4, 30);
+        this.spawnSparks(defender.x, defender.y + 1.4, 25);
+        this.spawnCombatText(defender.x, defender.y + 2.4, '¡TAJO PROFUNDO!', '#dc2626');
+
+        // Fase 2: Martillo rompehuesos al esternón
+        setTimeout(() => {
+          sounds.playPunch();
+          sounds.playMetalClang();
+          sounds.playFatalityGore();
+          this.shakeCamera(0.35, 250);
+          this.spawn3DBloodExplosion(defender.x, defender.y + 1.3, 35);
+          this.spawnCombatText(defender.x, defender.y + 2.5, '¡CRACK! ¡COSTILLAS ROTAS!', '#f59e0b');
+
+          // Fase 3: Salto y mazo destructor sobre el cráneo
+          setTimeout(() => {
+            gsap.to(attacker.mesh.position, { y: 3.2, duration: 0.35, ease: 'power1.out' });
+
+            setTimeout(() => {
+              gsap.to(attacker.mesh.position, {
+                y: FLOOR_Y,
+                duration: 0.22,
+                ease: 'power4.in',
+                onComplete: () => {
+                  sounds.playAnnouncerBass();
+                  sounds.playFatalityGore();
+                  sounds.playMetalClang();
+                  this.shakeCamera(0.5, 380);
+
+                  this.spawnShockwaveRing(defender.x, FLOOR_Y + 0.02, 0xdc2626);
+                  this.spawnGroundDebris(defender.x, FLOOR_Y);
+                  this.spawnBloodGeyser(defender.x, FLOOR_Y + 0.5, 30);
+                  defender.triggerKnockdown();
+
+                  setTimeout(() => this.finishFatalBlowCinematic(attacker, defender, 320), 750);
+                }
+              });
+            }, 360);
+          }, 600);
+        }, 500);
+      }
     });
+  }
 
-    const beamLength = Math.abs(attacker.x - defender.x) + 4.0;
-    const beamGeo = new THREE.CylinderGeometry(0.14, 0.14, beamLength, 16);
-    const beamMat = new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.95 });
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.rotation.z = Math.PI / 2;
-    beam.position.set(attacker.x + (attacker.facing * beamLength) / 2, 1.7, 0);
-    this.scene.add(beam);
+  // 2. Fatal Blow de Pennywise: "LUCES DE LA MUERTE CÓSMICAS"
+  executePennyFatalBlow(attacker, defender) {
+    const midX = (attacker.x + defender.x) / 2;
 
-    const ringGeo = new THREE.TorusGeometry(0.65, 0.08, 12, 24);
-    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    ring.rotation.y = Math.PI / 2;
-    ring.position.set((attacker.x + defender.x) / 2, 1.7, 0);
-    this.scene.add(ring);
+    // Fase 1: Globos carmesí atrapan y levitan al rival
+    this.spawnFloatingBalloons(defender.x, FLOOR_Y + 0.5, 6);
+    sounds.playTeleport();
 
+    gsap.to(defender.mesh.position, { y: 2.8, duration: 0.65, ease: 'power2.out' });
+    gsap.to(this.camera.position, { x: midX, y: 2.2, z: 5.2, duration: 0.5, ease: 'power2.out' });
+
+    // Fase 2: Apertura de Deadlights cósmicos
     setTimeout(() => {
-      defender.takeDamage(260, attacker.facing * 0.7, false);
-      sounds.playFatalityGore();
-      this.spawn3DBloodExplosion(defender.x, 1.7, 50);
+      sounds.playLaserBeam();
+      sounds.playLaserBeam();
+      this.shakeCamera(0.3, 250);
 
-      this.scene.remove(beam);
-      this.scene.remove(ring);
+      const lightOrb = new THREE.PointLight(0xff0044, 4, 8);
+      lightOrb.position.set(attacker.x + attacker.facing * 0.6, attacker.y + 1.8, 0);
+      this.scene.add(lightOrb);
 
-      document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
-      gsap.to(this.camera.position, {
-        x: (this.p1.x + this.p2.x) / 2,
-        y: this.defaultCameraPos.y,
-        z: this.defaultCameraPos.z,
-        duration: 0.6,
-        ease: 'power2.out'
-      });
-    }, 950);
+      const beamGeo = new THREE.CylinderGeometry(0.12, 0.12, Math.abs(attacker.x - defender.x) + 2.5, 12);
+      const beamMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      beam.rotation.z = Math.PI / 2;
+      beam.position.set(midX, 2.3, 0);
+      this.scene.add(beam);
+
+      this.spawnCombatText(defender.x, defender.y + 1.5, '¡CORRUPCIÓN CÓSMICA!', '#a855f7');
+      this.spawn3DBloodExplosion(defender.x, 2.8, 25);
+
+      // Fase 3: Salto y mordisco titánico que azota al suelo
+      setTimeout(() => {
+        this.scene.remove(beam);
+        this.scene.remove(lightOrb);
+
+        gsap.to(attacker.mesh.position, {
+          x: defender.x - defender.facing * 0.4,
+          y: 2.9,
+          duration: 0.3,
+          ease: 'power3.in',
+          onComplete: () => {
+            sounds.playFatalityGore();
+            sounds.playMetalClang();
+            this.shakeCamera(0.48, 350);
+
+            this.spawn3DBloodExplosion(defender.x, 2.8, 60);
+            this.spawnFloatingBalloons(defender.x, 2.5, 4);
+
+            gsap.to(defender.mesh.position, {
+              y: FLOOR_Y,
+              duration: 0.25,
+              ease: 'power3.in',
+              onComplete: () => {
+                defender.triggerKnockdown();
+                this.spawnShockwaveRing(defender.x, FLOOR_Y + 0.02, 0xa855f7);
+              }
+            });
+
+            gsap.to(attacker.mesh.position, { y: FLOOR_Y, duration: 0.35, ease: 'bounce.out' });
+            setTimeout(() => this.finishFatalBlowCinematic(attacker, defender, 310), 800);
+          }
+        });
+      }, 700);
+    }, 600);
+  }
+
+  // 3. Fatal Blow de Freddy Krueger: "HORNO DE LAS PESADILLAS"
+  executeFreddyFatalBlow(attacker, defender) {
+    const isP1 = attacker === this.p1;
+    const midX = (attacker.x + defender.x) / 2;
+
+    // Fase 1: Raspar garras contra caldera con chispas
+    sounds.playBladeSlash();
+    sounds.playMetalClang();
+    this.spawnSparks(attacker.x + attacker.facing * 0.5, attacker.y + 1.2, 55);
+
+    gsap.to(this.camera.position, { x: attacker.x, y: 1.5, z: 4.2, duration: 0.35 });
+
+    // Fase 2: Teletransporte detrás y empalamiento
+    setTimeout(() => {
+      sounds.playTeleport();
+      this.spawnHellfirePillar(attacker.x, FLOOR_Y, 25);
+
+      attacker.x = defender.x + defender.facing * 0.75;
+      attacker.facing = -defender.facing;
+      attacker.mesh.position.x = attacker.x;
+      this.spawnHellfirePillar(attacker.x, FLOOR_Y, 25);
+
+      setTimeout(() => {
+        sounds.playBladeSlash();
+        sounds.playFatalityGore();
+        sounds.playMetalClang();
+        this.shakeCamera(0.35, 250);
+
+        this.spawnSparks(defender.x, defender.y + 1.4, 45);
+        this.spawn3DBloodExplosion(defender.x - defender.facing * 0.3, defender.y + 1.4, 35);
+        this.spawnCombatText(defender.x, defender.y + 2.5, '¡EMPALAMIENTO DE CALDERA!', '#ea580c');
+
+        // Fase 3: Giro de 360 grados y latigazo de fuego expulsando al rival
+        setTimeout(() => {
+          sounds.playBladeSlash();
+          sounds.playMetalClang();
+          this.shakeCamera(0.45, 350);
+
+          this.spawnHellfirePillar(defender.x, FLOOR_Y, 40);
+
+          gsap.to(defender.mesh.position, {
+            x: defender.x - attacker.facing * 4.4,
+            y: FLOOR_Y,
+            duration: 0.5,
+            ease: 'power2.out',
+            onComplete: () => defender.triggerKnockdown()
+          });
+
+          setTimeout(() => this.finishFatalBlowCinematic(attacker, defender, 330), 750);
+        }, 600);
+      }, 350);
+    }, 550);
+  }
+
+  finishFatalBlowCinematic(attacker, defender, damage) {
+    defender.takeDamage(damage, attacker.facing * 0.7, false);
+
+    document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
+    this.camera.rotation.set(0, 0, 0);
+
+    gsap.to(this.camera.position, {
+      x: (this.p1.x + this.p2.x) / 2,
+      y: this.defaultCameraPos.y,
+      z: this.defaultCameraPos.z,
+      duration: 0.55,
+      ease: 'power2.out',
+      onComplete: () => {
+        attacker.state = 'idle';
+        if (defender.health > 0) defender.state = 'idle';
+        this.gameState = 'FIGHTING';
+        this.checkRoundEnd();
+      }
+    });
   }
 
   // ==========================================================================
-  // FATALITIES INDIVIDUALES SCRIPTADAS EN 3D
+  // FATALITIES INDIVIDUALES SCRIPTADAS EN 3D (DECAPITACIÓN Y GORE AUTÉNTICO)
   // ==========================================================================
   executeFatalityCinematic() {
     this.gameState = 'FATALITY_EXECUTION';
@@ -1736,16 +2146,16 @@ class FatalStrike3DGame {
 
     sounds.playFatalityGore();
     sounds.speak('FATALITY');
-    this.showAnnouncer('FATALITY', `${winner.data.name.toUpperCase()} WINS`, 4000, null, true);
+    this.showAnnouncer('FATALITY', `${winner.data.name.toUpperCase()} WINS`, 4200, null, true);
 
-    const orbitTarget = { angle: 0, dist: 6.5, height: 2.2 };
+    const orbitTarget = { angle: 0, dist: 6.2, height: 2.1 };
     const centerPoint = new THREE.Vector3((winner.x + loser.x) / 2, 1.6, 0);
 
     gsap.to(orbitTarget, {
-      angle: Math.PI * 1.5,
+      angle: Math.PI * 1.4,
       dist: 5.0,
       height: 1.6,
-      duration: 3.2,
+      duration: 3.5,
       ease: 'power1.inOut',
       onUpdate: () => {
         this.camera.position.x = centerPoint.x + Math.sin(orbitTarget.angle) * orbitTarget.dist;
@@ -1755,69 +2165,291 @@ class FatalStrike3DGame {
       }
     });
 
-    // Fatality única según el personaje vencedor
+    // 1. Art the Clown: Auténtica Decapitación 3D
     if (winner.characterKey === 'mime') {
-      // Art the Clown: Decapitación lenta con cuchillo de carnicero y geiser de sangre
+      loser.model.pelvis.position.y = 1.1;
+      loser.model.leftLeg.rotation.x = 0.9;
+      loser.model.rightLeg.rotation.x = 0.9;
+      loser.model.spine.rotation.x = 0.2;
+
       gsap.to(winner.mesh.position, {
-        x: loser.x - loser.facing * 0.9,
-        duration: 0.5,
+        x: loser.x - loser.facing * 0.85,
+        duration: 0.6,
         ease: 'power2.out',
         onComplete: () => {
           sounds.playBladeSlash();
-          sounds.playFatalityGore();
-          if (loser.model && loser.model.headGroup) {
-            gsap.to(loser.model.headGroup.position, {
-              y: 4.8,
-              x: loser.facing * -2.2,
-              duration: 1.0,
-              ease: 'power2.out'
+          gsap.to(winner.model.leftArm.rotation, { x: 1.8, duration: 0.3, yoyo: true, repeat: 1 });
+
+          setTimeout(() => {
+            gsap.to(winner.model.rightArm.rotation, {
+              x: 2.8,
+              duration: 0.35,
+              ease: 'power2.out',
+              onComplete: () => {
+                sounds.playBladeSlash();
+                sounds.playFatalityGore();
+                sounds.playMetalClang();
+
+                gsap.to(winner.model.rightArm.rotation, { x: 0.1, duration: 0.1, ease: 'power4.in' });
+                this.shakeCamera(0.4, 300);
+
+                const flash = document.getElementById('cinematic-flash');
+                if (flash) {
+                  flash.classList.add('active-white');
+                  setTimeout(() => flash.classList.remove('active-white'), 150);
+                }
+
+                // Ocultar cabeza original del perdedor
+                if (loser.model.headGroup) loser.model.headGroup.visible = false;
+
+                // Añadir muñón en el cuello
+                const stump = new THREE.Mesh(
+                  new THREE.CylinderGeometry(0.12, 0.14, 0.16, 12),
+                  new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.3 })
+                );
+                stump.position.set(0, 1.0, 0);
+                loser.model.spine.add(stump);
+
+                // Crear cabeza cercenada en el mundo
+                const severedHead = Character3DBuilder.buildSeveredHead(loser.characterKey);
+                severedHead.position.set(loser.x, loser.y + 2.4, loser.z);
+                this.scene.add(severedHead);
+
+                // Geiser continuo de sangre brotando del cuello
+                const fountainInterval = setInterval(() => {
+                  this.spawnBloodGeyser(loser.x, loser.y + 1.9, 14);
+                }, 70);
+                setTimeout(() => clearInterval(fountainInterval), 2500);
+
+                // Trayectoria y bote de la cabeza en el suelo
+                gsap.to(severedHead.position, {
+                  x: loser.x + (loser.facing * -2.6),
+                  y: FLOOR_Y + 0.28,
+                  z: 0.6,
+                  duration: 1.2,
+                  ease: 'bounce.out'
+                });
+                gsap.to(severedHead.rotation, {
+                  x: Math.PI * 4,
+                  z: Math.PI * 3,
+                  duration: 1.2
+                });
+
+                // Colapso del cuerpo sin cabeza hacia adelante
+                setTimeout(() => {
+                  gsap.to(loser.model.spine.rotation, { x: 1.5, duration: 0.8, ease: 'power2.in' });
+                  gsap.to(loser.model.pelvis.position, { y: FLOOR_Y + 0.35, duration: 0.8, ease: 'bounce.out' });
+                  this.spawnPoolOfBlood(loser.x, FLOOR_Y + 0.02, 1.3);
+                }, 700);
+              }
             });
-            gsap.to(loser.model.headGroup.rotation, { z: Math.PI * 4, duration: 1.0 });
-          }
-          this.spawn3DBloodExplosion(loser.x, 2.4, 110);
-          loser.triggerKnockdown();
+          }, 450);
         }
       });
     } else if (winner.characterKey === 'penny') {
-      // Pennywise: Globo gigante cósmico que absorbe al rival y detona en niebla carmesí
-      const bigBalloon = new THREE.Mesh(
-        new THREE.SphereGeometry(1.6, 24, 24),
-        new THREE.MeshStandardMaterial({ color: 0xdc2626, transparent: true, opacity: 0.85, roughness: 0.2 })
-      );
-      bigBalloon.position.set(loser.x, 1.8, 0);
-      this.scene.add(bigBalloon);
+      // 2. Pennywise: Devoración de mandíbula monstruosa y globos carmesí
+      loser.model.pelvis.position.y = 1.1;
+      loser.model.leftLeg.rotation.x = 0.9;
+      loser.model.rightLeg.rotation.x = 0.9;
 
-      gsap.to(bigBalloon.scale, {
-        x: 1.9, y: 1.9, z: 1.9, duration: 1.3, ease: 'power2.in',
+      gsap.to(winner.mesh.position, {
+        x: loser.x - loser.facing * 0.9,
+        duration: 0.7,
+        ease: 'power1.inOut',
         onComplete: () => {
-          this.scene.remove(bigBalloon);
-          loser.mesh.visible = false;
-          sounds.playFatalityGore();
-          this.spawn3DBloodExplosion(loser.x, 1.8, 120);
+          sounds.playTeleport();
+
+          const demonJaw = Character3DBuilder.buildDemonMaw();
+          demonJaw.position.set(0, 0, 0.35);
+          winner.model.headGroup.add(demonJaw);
+
+          setTimeout(() => {
+            sounds.playFatalityGore();
+            sounds.playMetalClang();
+            this.shakeCamera(0.45, 350);
+
+            // Devora torso y cabeza del rival
+            loser.model.spine.visible = false;
+
+            const goreStump = Character3DBuilder.buildGoreRibsStump();
+            goreStump.position.set(0, 0.2, 0);
+            loser.model.pelvis.add(goreStump);
+
+            this.spawn3DBloodExplosion(loser.x, loser.y + 1.6, 95);
+            this.spawnPoolOfBlood(loser.x, FLOOR_Y + 0.02, 1.5);
+            this.spawnFloatingBalloons(loser.x, FLOOR_Y + 0.5, 6);
+
+            setTimeout(() => {
+              gsap.to(loser.model.pelvis.position, { y: FLOOR_Y + 0.25, duration: 0.6, ease: 'bounce.out' });
+            }, 600);
+
+            setTimeout(() => {
+              winner.model.headGroup.remove(demonJaw);
+              sounds.playLaserBeam();
+            }, 1200);
+          }, 600);
         }
       });
     } else if (winner.characterKey === 'freddy') {
-      // Freddy Krueger: Embestida con garras cruzadas atravesando el pecho y llamas infernales
-      gsap.to(winner.mesh.position, {
-        x: loser.x - loser.facing * 0.75,
-        duration: 0.4,
-        ease: 'power3.in',
-        onComplete: () => {
-          sounds.playBladeSlash();
-          sounds.playMetalClang();
-          sounds.playFatalityGore();
-          this.spawn3DFireExplosion(loser.x, 1.6, 60);
-          this.spawn3DBloodExplosion(loser.x, 1.6, 70);
-          loser.triggerKnockdown();
-        }
-      });
+      // 3. Freddy Krueger: Empalamiento de garras y arrastre al horno ardiente
+      const furnaceGrate = Character3DBuilder.buildFurnaceGrate();
+      furnaceGrate.position.set(loser.x, FLOOR_Y + 0.02, 0);
+      this.scene.add(furnaceGrate);
+
+      winner.x = loser.x + loser.facing * 0.8;
+      winner.facing = -loser.facing;
+      winner.mesh.position.x = winner.x;
+      this.spawnHellfirePillar(winner.x, FLOOR_Y, 30);
+      sounds.playTeleport();
+
+      setTimeout(() => {
+        sounds.playBladeSlash();
+        sounds.playFatalityGore();
+        sounds.playMetalClang();
+        this.shakeCamera(0.35, 250);
+
+        this.spawnSparks(loser.x, loser.y + 1.5, 45);
+        this.spawn3DBloodExplosion(loser.x - loser.facing * 0.4, loser.y + 1.5, 40);
+
+        gsap.to(loser.mesh.position, { y: loser.y + 1.4, duration: 0.5, ease: 'power2.out' });
+        gsap.to(winner.model.rightArm.rotation, { x: 2.2, duration: 0.5 });
+
+        setTimeout(() => {
+          furnaceGrate.openDoor();
+          sounds.playAnnouncerBass();
+
+          gsap.to(loser.mesh.position, {
+            y: FLOOR_Y - 1.2,
+            duration: 0.45,
+            ease: 'power3.in',
+            onComplete: () => {
+              loser.mesh.visible = false;
+              sounds.playFatalityGore();
+              sounds.playMetalClang();
+
+              this.spawnHellfirePillar(loser.x, FLOOR_Y, 70);
+              furnaceGrate.closeDoor();
+              this.spawnSparks(loser.x, FLOOR_Y + 0.2, 50);
+            }
+          });
+        }, 700);
+      }, 500);
     }
 
     setTimeout(() => {
       const isFlawless = winner.health >= winner.maxHealth;
       if (isFlawless) sounds.speak('FLAWLESS VICTORY');
       this.concludeRound(winner, true);
-    }, 3800);
+    }, 3900);
+  }
+
+  // Nuevos Métodos Visuales y Partículas Especiales 3D
+  spawnBloodGeyser(x, y, count) {
+    const bloodMat = new THREE.MeshBasicMaterial({ color: 0x990000 });
+    for (let i = 0; i < count; i++) {
+      const drop = new THREE.Mesh(new THREE.SphereGeometry(0.04 + Math.random() * 0.05, 5, 5), bloodMat);
+      drop.position.set(x + (Math.random() - 0.5) * 0.3, y, (Math.random() - 0.5) * 0.3);
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.16,
+        Math.random() * 0.35 + 0.3,
+        (Math.random() - 0.5) * 0.16
+      );
+      this.scene.add(drop);
+      this.particles3D.push({ mesh: drop, vel, life: 50 });
+    }
+  }
+
+  spawnPoolOfBlood(x, y, maxRadius) {
+    const pool = new THREE.Mesh(
+      new THREE.CircleGeometry(0.1, 16),
+      new THREE.MeshBasicMaterial({ color: 0x550000, transparent: true, opacity: 0.9 })
+    );
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(x, y, 0);
+    this.scene.add(pool);
+    this.bloodDecals.push(pool);
+
+    gsap.to(pool.scale, { x: maxRadius * 10, y: maxRadius * 10, duration: 1.8, ease: 'power2.out' });
+  }
+
+  spawnFloatingBalloons(x, y, count) {
+    const balloonMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.25 });
+    for (let i = 0; i < count; i++) {
+      const bGroup = new THREE.Group();
+      const bMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), balloonMat);
+      const stringMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.01, 0.01, 0.6, 4),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      stringMesh.position.y = -0.4;
+      bGroup.add(bMesh, stringMesh);
+
+      bGroup.position.set(x + (Math.random() - 0.5) * 1.5, y + Math.random() * 0.4, (Math.random() - 0.5) * 0.8);
+      this.scene.add(bGroup);
+
+      const vel = new THREE.Vector3((Math.random() - 0.5) * 0.02, 0.04 + Math.random() * 0.03, 0);
+      this.particles3D.push({ mesh: bGroup, vel, life: 160, isBalloon: true });
+    }
+  }
+
+  spawnHellfirePillar(x, y, count) {
+    const fireColors = [0xff2200, 0xff7700, 0x16a34a];
+    for (let i = 0; i < count; i++) {
+      const pMat = new THREE.MeshBasicMaterial({ color: fireColors[Math.floor(Math.random() * fireColors.length)] });
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.08), pMat);
+      p.position.set(x + (Math.random() - 0.5) * 0.8, y, (Math.random() - 0.5) * 0.8);
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.12,
+        Math.random() * 0.4 + 0.25,
+        (Math.random() - 0.5) * 0.12
+      );
+      this.scene.add(p);
+      this.particles3D.push({ mesh: p, vel, life: 40 });
+    }
+  }
+
+  spawnShadowDash(fighter) {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        const shadow = Character3DBuilder.build(fighter.characterKey).root;
+        shadow.position.copy(fighter.mesh.position);
+        shadow.rotation.copy(fighter.mesh.rotation);
+        shadow.traverse(child => {
+          if (child.isMesh) {
+            child.material = new THREE.MeshBasicMaterial({ color: 0x4c1d95, transparent: true, opacity: 0.45 });
+          }
+        });
+        this.scene.add(shadow);
+        gsap.to(shadow.position, {
+          x: shadow.position.x - fighter.facing * 0.4,
+          duration: 0.35,
+          onComplete: () => this.scene.remove(shadow)
+        });
+      }, i * 60);
+    }
+  }
+
+  spawnGroundDebris(x, y) {
+    const matWood = new THREE.MeshStandardMaterial({ color: 0x3d170d, roughness: 0.8 });
+    for (let i = 0; i < 7; i++) {
+      const chunk = new THREE.Mesh(new THREE.BoxGeometry(0.12 + Math.random() * 0.1, 0.08, 0.12), matWood);
+      chunk.position.set(x + (Math.random() - 0.5) * 1.2, y + 0.1, (Math.random() - 0.5) * 0.6);
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.25,
+        Math.random() * 0.3 + 0.15,
+        (Math.random() - 0.5) * 0.25
+      );
+      this.scene.add(chunk);
+      this.particles3D.push({ mesh: chunk, vel, life: 45 });
+    }
+  }
+
+  spawnFloorSparksTrail(fighter) {
+    for (let i = 0; i < 6; i++) {
+      setTimeout(() => {
+        this.spawnSparks(fighter.x - fighter.facing * 0.4, FLOOR_Y + 0.05, 12);
+      }, i * 40);
+    }
   }
 
   // Generación de Entidades Especiales 3D
@@ -1974,6 +2606,7 @@ class FatalStrike3DGame {
       fatalityTimerBar: document.getElementById('fatality-timer-bar'),
       fatalityTimerFill: document.getElementById('fatality-timer-fill'),
       fatalityTimerText: document.getElementById('fatality-timer-text'),
+      btnTriggerFatality: document.getElementById('btn-trigger-fatality'),
 
       p1Name: document.getElementById('p1-name'),
       p1HealthFill: document.getElementById('p1-health-fill'),
@@ -2028,6 +2661,13 @@ class FatalStrike3DGame {
       sounds.init();
       this.openCharacterSelect();
     });
+
+    if (this.dom.btnTriggerFatality) {
+      this.dom.btnTriggerFatality.addEventListener('click', () => {
+        sounds.init();
+        this.triggerFatalityDirect();
+      });
+    }
 
     this.dom.btnToggleSound.addEventListener('click', () => {
       sounds.init();
@@ -2085,14 +2725,35 @@ class FatalStrike3DGame {
       this.keys[e.code] = true;
       this.keys[e.key] = true;
 
-      // Filtrar e.repeat para que las secuencias del buffer se registren limpiamente
+      // Filtrar e.repeat y no contaminar buffers entre P1 y P2
       if (!e.repeat) {
-        if (this.p1) this.p1.registerInput(e.code);
-        if (this.p2) this.p2.registerInput(e.code);
+        const p1KeySet = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'Space']);
+        const p2KeySet = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyK', 'KeyL', 'KeyP', 'KeyÑ', 'ñ', 'Semicolon', 'Quote', 'Enter']);
+
+        if (this.p1 && p1KeySet.has(e.code)) this.p1.registerInput(e.code);
+        if (this.p2 && (p2KeySet.has(e.code) || p2KeySet.has(e.key))) this.p2.registerInput(e.code);
       }
 
       if (this.gameState === 'FINISH_HIM') {
+        if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyH' || e.code === 'KeyP') {
+          e.preventDefault();
+          this.triggerFatalityDirect();
+          return;
+        }
         this.checkFatalityTrigger();
+      }
+
+      if (this.gameState === 'MATCH_OVER') {
+        if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyR') {
+          e.preventDefault();
+          this.dom.btnRematch.click();
+          return;
+        }
+        if (e.code === 'Escape' || e.code === 'KeyC') {
+          e.preventDefault();
+          this.dom.btnChangeFighters.click();
+          return;
+        }
       }
 
       if (this.gameState === 'MENU_SELECT') {
@@ -2341,6 +3002,15 @@ class FatalStrike3DGame {
     this.p1.reset(-5.5, 1);
     this.p2.reset(5.5, -1);
 
+    this.p1GhostHp = 100;
+    this.p2GhostHp = 100;
+    if (this.dom.p1HealthGhost) this.dom.p1HealthGhost.style.width = '100%';
+    if (this.dom.p2HealthGhost) this.dom.p2HealthGhost.style.width = '100%';
+    if (this.dom.p1HealthFill) this.dom.p1HealthFill.className = 'bar-fill health-fill hp-high';
+    if (this.dom.p2HealthFill) this.dom.p2HealthFill.className = 'bar-fill health-fill hp-high';
+    if (this.dom.btnTriggerFatality) this.dom.btnTriggerFatality.classList.add('hidden');
+    if (this.dom.fatalityTimerBar) this.dom.fatalityTimerBar.classList.add('hidden');
+
     this.projectiles.forEach(p => this.scene.remove(p.mesh));
     this.projectiles = [];
 
@@ -2443,6 +3113,7 @@ class FatalStrike3DGame {
     this.showAnnouncer('FINISH HIM!', '¡EJECUTA LA FATALITY!', 2500, null, true);
 
     this.dom.fatalityTimerBar.classList.remove('hidden');
+    if (this.dom.btnTriggerFatality) this.dom.btnTriggerFatality.classList.remove('hidden');
 
     gsap.to(this.camera.position, {
       x: (winner.x + loser.x) / 2,
@@ -2465,6 +3136,7 @@ class FatalStrike3DGame {
       if (this.fatalityTimer <= 0) {
         clearInterval(this.fatalityInterval);
         this.dom.fatalityTimerBar.classList.add('hidden');
+        if (this.dom.btnTriggerFatality) this.dom.btnTriggerFatality.classList.add('hidden');
         if (this.gameState === 'FINISH_HIM') {
           this.executeStandardKO();
         }
@@ -2479,9 +3151,36 @@ class FatalStrike3DGame {
     const comboSeq = isP1 ? winner.data.fatalityComboP1 : winner.data.fatalityComboP2;
 
     if (winner.checkSequence(comboSeq)) {
-      clearInterval(this.fatalityInterval);
-      this.dom.fatalityTimerBar.classList.add('hidden');
-      this.executeFatalityCinematic();
+      this.triggerFatalityDirect();
+    }
+  }
+
+  triggerFatalityDirect() {
+    if (this.gameState !== 'FINISH_HIM' || !this.fatalityWinner) return;
+    clearInterval(this.fatalityInterval);
+    this.dom.fatalityTimerBar.classList.add('hidden');
+    if (this.dom.btnTriggerFatality) this.dom.btnTriggerFatality.classList.add('hidden');
+    this.executeFatalityCinematic();
+  }
+
+  checkFinishHimStrike() {
+    if (!this.fatalityWinner || !this.fatalityLoser) return;
+    const winner = this.fatalityWinner;
+    const loser = this.fatalityLoser;
+
+    if (winner.attackBox && winner.attackBox.active && !winner.hasHitCurrentAttack) {
+      if (this.testOverlap(winner.attackBox, loser)) {
+        winner.hasHitCurrentAttack = true;
+        this.triggerFatalityDirect();
+      }
+    }
+  }
+
+  onFighterDamaged(fighter) {
+    const fillEl = fighter.playerId === 1 ? this.dom.p1HealthFill : this.dom.p2HealthFill;
+    if (fillEl) {
+      fillEl.classList.add('hit-flash');
+      setTimeout(() => fillEl.classList.remove('hit-flash'), 120);
     }
   }
 
@@ -2490,6 +3189,8 @@ class FatalStrike3DGame {
     const winner = this.fatalityWinner;
     const loser = this.fatalityLoser;
     this.gameState = 'ROUND_OVER';
+    if (this.dom.btnTriggerFatality) this.dom.btnTriggerFatality.classList.add('hidden');
+    this.dom.fatalityTimerBar.classList.add('hidden');
 
     sounds.speak(`${winner.data.name} WINS`);
     this.showAnnouncer('K.O.', `${winner.data.name.toUpperCase()} WINS`, 2500, () => {
@@ -2502,6 +3203,7 @@ class FatalStrike3DGame {
     clearInterval(this.timerInterval);
     clearInterval(this.fatalityInterval);
     this.dom.fatalityTimerBar.classList.add('hidden');
+    if (this.dom.btnTriggerFatality) this.dom.btnTriggerFatality.classList.add('hidden');
     this.dom.announcerOverlay.classList.add('hidden');
     document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
 
@@ -2616,20 +3318,58 @@ class FatalStrike3DGame {
     this.dom.p1HealthFill.style.width = `${p1HpPct}%`;
     this.dom.p1HealthText.textContent = `${Math.ceil(p1HpPct)}%`;
 
+    this.dom.p1HealthFill.classList.toggle('hp-high', p1HpPct > 60);
+    this.dom.p1HealthFill.classList.toggle('hp-mid', p1HpPct <= 60 && p1HpPct > 30);
+    this.dom.p1HealthFill.classList.toggle('hp-low', p1HpPct <= 30);
+
+    if (this.p1GhostHp === undefined) this.p1GhostHp = 100;
+    if (p1HpPct < this.p1GhostHp) {
+      if (!this.p1GhostTimeout) {
+        this.p1GhostTimeout = setTimeout(() => {
+          this.p1GhostHp = p1HpPct;
+          if (this.dom.p1HealthGhost) this.dom.p1HealthGhost.style.width = `${this.p1GhostHp}%`;
+          this.p1GhostTimeout = null;
+        }, 320);
+      }
+    } else {
+      this.p1GhostHp = p1HpPct;
+      if (this.dom.p1HealthGhost) this.dom.p1HealthGhost.style.width = `${this.p1GhostHp}%`;
+    }
+
+    const p1FbReady = this.p1.canUseFatalBlow();
     const p1EnPct = Math.min(100, (this.p1.energy / this.p1.maxEnergy) * 100);
-    this.dom.p1EnergyFill.style.width = `${p1EnPct}%`;
-    this.dom.p1EnergyText.textContent = p1EnPct >= 100 ? '¡FATAL BLOW LISTO! [H]' : `FATAL BLOW: ${Math.floor(p1EnPct)}%`;
-    this.dom.p1EnergyFill.classList.toggle('ready', p1EnPct >= 100);
+    this.dom.p1EnergyFill.style.width = `${p1FbReady ? 100 : p1EnPct}%`;
+    this.dom.p1EnergyText.textContent = p1FbReady ? '¡FATAL BLOW LISTO! [H] / [F+G]' : `ENERGÍA: ${Math.floor(p1EnPct)}%`;
+    this.dom.p1EnergyFill.classList.toggle('ready', p1FbReady);
 
     // P2 Barras
     const p2HpPct = Math.max(0, (this.p2.health / this.p2.maxHealth) * 100);
     this.dom.p2HealthFill.style.width = `${p2HpPct}%`;
     this.dom.p2HealthText.textContent = `${Math.ceil(p2HpPct)}%`;
 
+    this.dom.p2HealthFill.classList.toggle('hp-high', p2HpPct > 60);
+    this.dom.p2HealthFill.classList.toggle('hp-mid', p2HpPct <= 60 && p2HpPct > 30);
+    this.dom.p2HealthFill.classList.toggle('hp-low', p2HpPct <= 30);
+
+    if (this.p2GhostHp === undefined) this.p2GhostHp = 100;
+    if (p2HpPct < this.p2GhostHp) {
+      if (!this.p2GhostTimeout) {
+        this.p2GhostTimeout = setTimeout(() => {
+          this.p2GhostHp = p2HpPct;
+          if (this.dom.p2HealthGhost) this.dom.p2HealthGhost.style.width = `${this.p2GhostHp}%`;
+          this.p2GhostTimeout = null;
+        }, 320);
+      }
+    } else {
+      this.p2GhostHp = p2HpPct;
+      if (this.dom.p2HealthGhost) this.dom.p2HealthGhost.style.width = `${this.p2GhostHp}%`;
+    }
+
+    const p2FbReady = this.p2.canUseFatalBlow();
     const p2EnPct = Math.min(100, (this.p2.energy / this.p2.maxEnergy) * 100);
-    this.dom.p2EnergyFill.style.width = `${p2EnPct}%`;
-    this.dom.p2EnergyText.textContent = p2EnPct >= 100 ? '¡FATAL BLOW LISTO! [Ñ/;/P]' : `FATAL BLOW: ${Math.floor(p2EnPct)}%`;
-    this.dom.p2EnergyFill.classList.toggle('ready', p2EnPct >= 100);
+    this.dom.p2EnergyFill.style.width = `${p2FbReady ? 100 : p2EnPct}%`;
+    this.dom.p2EnergyText.textContent = p2FbReady ? '¡FATAL BLOW LISTO! [Ñ/;/P] / [K+L]' : `ENERGÍA: ${Math.floor(p2EnPct)}%`;
+    this.dom.p2EnergyFill.classList.toggle('ready', p2FbReady);
 
     // Contadores de Kombo
     this.dom.p1Combo.textContent = this.p1.comboCount > 1 ? `${this.p1.comboCount} HITS KOMBO!` : '';
@@ -2664,9 +3404,9 @@ class FatalStrike3DGame {
         if (this.p2Renderer && this.p2Scene && this.p2Cam) this.p2Renderer.render(this.p2Scene, this.p2Cam);
       }
 
-      // Si está en combate y no está pausado
+      // Si está en combate o Finish Him y no está pausado
       if (!this.isPaused) {
-        if (this.gameState === 'FIGHTING') {
+        if (this.gameState === 'FIGHTING' || this.gameState === 'FINISH_HIM') {
           const p1Input = {
             up: this.keys['KeyW'],
             down: this.keys['KeyS'],
@@ -2691,8 +3431,13 @@ class FatalStrike3DGame {
 
           this.p1.update(this.p2);
           this.p2.update(this.p1);
-          this.checkMeleeCollisions();
-          this.checkRoundEnd();
+
+          if (this.gameState === 'FIGHTING') {
+            this.checkMeleeCollisions();
+            this.checkRoundEnd();
+          } else if (this.gameState === 'FINISH_HIM') {
+            this.checkFinishHimStrike();
+          }
 
           // Cámara 3D suave siguiendo el centro del combate
           const midX = (this.p1.x + this.p2.x) / 2;
@@ -2700,7 +3445,7 @@ class FatalStrike3DGame {
           this.camera.position.x += (midX - this.camera.position.x) * 0.08;
           this.camera.position.z += (Math.max(9.5, dist * 0.95 + 4.5) - this.camera.position.z) * 0.08;
           this.camera.lookAt(midX, 2.0, 0);
-        } else if (['FINISH_HIM', 'FATALITY_EXECUTION', 'ROUND_OVER', 'MATCH_OVER'].includes(this.gameState)) {
+        } else if (['ROUND_OVER', 'MATCH_OVER'].includes(this.gameState)) {
           if (this.p1) this.p1.update(this.p2);
           if (this.p2) this.p2.update(this.p1);
         }
@@ -2709,12 +3454,16 @@ class FatalStrike3DGame {
         for (let i = this.particles3D.length - 1; i >= 0; i--) {
           const p = this.particles3D[i];
           p.mesh.position.add(p.vel);
-          p.vel.y -= 0.015;
-          p.life--;
-          if (p.mesh.position.y <= FLOOR_Y) {
-            p.mesh.position.y = FLOOR_Y + 0.01;
-            p.vel.set(0, 0, 0);
+          if (p.isBalloon) {
+            p.vel.x += (Math.random() - 0.5) * 0.005;
+          } else {
+            p.vel.y -= 0.015;
+            if (p.mesh.position.y <= FLOOR_Y) {
+              p.mesh.position.y = FLOOR_Y + 0.01;
+              p.vel.set(0, 0, 0);
+            }
           }
+          p.life--;
           if (p.life <= 0) {
             this.scene.remove(p.mesh);
             this.particles3D.splice(i, 1);
