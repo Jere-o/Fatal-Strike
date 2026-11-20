@@ -227,6 +227,30 @@ class SoundEngine {
     this.playBladeSlash();
   }
 
+  playBoneCrunch() {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.16);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.22));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(700, now);
+    filter.frequency.exponentialRampToValueAtTime(80, now + 0.16);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.95, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    noise.start(now);
+  }
+
   playHeartbeat() {
     if (!this.enabled || !this.ctx) return;
     const now = this.ctx.currentTime;
@@ -933,33 +957,46 @@ class Fighter3D {
     // Restaurar transformaciones del modelo
     this.mesh.visible = true;
     this.mesh.rotation.set(0, 0, 0);
+    this.model.facingGroup.rotation.y = this.facing === 1 ? Math.PI / 2 : -Math.PI / 2;
     this.model.pelvis.position.set(0, 1.6, 0);
     this.model.spine.rotation.set(0, 0, 0);
     if (this.model.headGroup) {
+      if (this.model.headGroup.parent !== this.model.spine) {
+        this.model.spine.add(this.model.headGroup);
+      }
       this.model.headGroup.position.set(0, 1.05, 0);
       this.model.headGroup.rotation.set(0, 0, 0);
+      this.model.headGroup.scale.set(1, 1, 1);
     }
+    this.model.leftArm.rotation.set(0, 0, 0);
+    this.model.rightArm.rotation.set(0, 0, 0);
+    this.model.lForeArm.rotation.set(0, 0, 0);
+    this.model.rForeArm.rotation.set(0, 0, 0);
     this.mesh.position.set(this.x, this.y, this.z);
   }
 
   registerInput(code) {
     const now = Date.now();
     this.inputBuffer.push({ code, time: now });
-    this.inputBuffer = this.inputBuffer.filter(i => now - i.time <= 650);
+    const cutoff = now - 1500;
+    this.inputBuffer = this.inputBuffer.filter(i => i.time >= cutoff).slice(-16);
   }
 
-  // Comprobación de secuencia comprimiendo repeticiones inmediatas
+  // Comprobación de secuencias precisa y tolerante con ventana deslizante (sin deduplicar entradas consecutivas)
   checkSequence(seq) {
     if (this.inputBuffer.length < seq.length) return false;
-    const compressed = [];
-    for (const item of this.inputBuffer) {
-      if (compressed.length === 0 || compressed[compressed.length - 1] !== item.code) {
-        compressed.push(item.code);
-      }
+    const codes = this.inputBuffer.map(i => i.code);
+    
+    // Coincidencia exacta al final del buffer
+    const tail = codes.slice(-seq.length);
+    if (seq.every((val, idx) => val === tail[idx])) return true;
+
+    // Margen de tolerancia de 1 tecla extra pulsada por error al final
+    if (codes.length >= seq.length + 1) {
+      const sub = codes.slice(-seq.length - 1, -1);
+      if (seq.every((val, idx) => val === sub[idx])) return true;
     }
-    if (compressed.length < seq.length) return false;
-    const recent = compressed.slice(-seq.length);
-    return seq.every((val, idx) => val === recent[idx]);
+    return false;
   }
 
   handleInput(input, opponent) {
@@ -1094,8 +1131,8 @@ class Fighter3D {
       return;
     }
 
-    // Fatal Blow con barra al 100%
-    if (input.special && this.energy >= this.maxEnergy) {
+    // Fatal Blow al 100% de barra o salud crítica (< 35%) estilo Mortal Kombat 1
+    if (input.special && (this.energy >= this.maxEnergy || this.health <= this.maxHealth * 0.35)) {
       this.startFatalBlowCinematic(opponent);
       return;
     }
@@ -1268,18 +1305,22 @@ class Fighter3D {
       sounds.playMetalClang();
       if (window.game) {
         window.game.spawnCombatText(this.x, this.y + 2.2, '¡BLOQUEO!', '#38bdf8');
+        window.game.triggerScreenShake(0.08, 120);
       }
     } else {
       this.hitStun = 16;
       this.state = 'hurt';
       this.stateTimer = 16;
 
-      if (amount > 80) sounds.playBladeSlash();
-      else sounds.playPunch();
+      if (amount > 100) sounds.playFatalityGore();
+      else if (amount > 70) sounds.playBladeSlash();
+      else if (Math.random() > 0.5) sounds.playPunch();
+      else sounds.playKick();
 
       if (window.game) {
         window.game.spawnCombatText(this.x, this.y + 2.4, `-${finalDamage}`, amount > 80 ? '#dc2626' : '#f59e0b');
-        window.game.spawn3DBloodExplosion(this.x, this.y + 1.5, amount > 80 ? 30 : 15);
+        window.game.spawn3DBloodExplosion(this.x, this.y + 1.5, amount > 80 ? 32 : 16);
+        window.game.triggerScreenShake(amount > 100 ? 0.32 : (amount > 60 ? 0.18 : 0.1), 160);
       }
     }
 
@@ -1421,7 +1462,7 @@ class Fighter3D {
     } else if (this.state === 'dazed') {
       m.pelvis.position.y = 1.55 + Math.sin(t * 2) * 0.04;
       m.spine.rotation.z = Math.sin(t * 2.5) * 0.15;
-      m.headGroup.rotation.y = Math.sin(t * 3) * 0.3;
+      if (m.headGroup) m.headGroup.rotation.y = Math.sin(t * 3) * 0.3;
       m.leftArm.rotation.x = 0.2;
       m.rightArm.rotation.x = 0.2;
     }
@@ -1433,6 +1474,7 @@ class Fighter3D {
 // ============================================================================
 class FatalStrike3DGame {
   constructor() {
+    window.game = this;
     this.container = document.getElementById('webgl-container');
     this.scene = null;
     this.camera = null;
@@ -1446,7 +1488,7 @@ class FatalStrike3DGame {
     this.p1 = null;
     this.p2 = null;
 
-    this.gameState = 'MENU_SELECT'; // MENU_SELECT, INTRO_ROUND, FIGHTING, FINISH_HIM, FATALITY_EXECUTION, ROUND_OVER, MATCH_OVER
+    this.gameState = 'MENU_SELECT'; // MENU_SELECT, INTRO_ROUND, FIGHTING, FINISH_HIM, FATALITY_EXECUTION, FATAL_BLOW_CINEMATIC, ROUND_OVER, MATCH_OVER
     this.round = 1;
     this.timer = ROUND_TIME;
     this.timerInterval = null;
@@ -1462,6 +1504,12 @@ class FatalStrike3DGame {
     this.projectiles = [];
     this.bloodDecals = [];
     this.floatingTexts = [];
+    this.cinematicProps = [];
+
+    this.screenShakeIntensity = 0;
+    this.screenShakeOffset = new THREE.Vector3(0, 0, 0);
+    this.shakeTimeout = null;
+    this.flashTimeout = null;
 
     this.initThreeJS();
     this.buildDojoStage();
@@ -1493,8 +1541,8 @@ class FatalStrike3DGame {
     this.renderer.toneMappingExposure = 1.15;
     this.container.appendChild(this.renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0x2d121c, 0.9);
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0x2d121c, 0.9);
+    this.scene.add(this.ambientLight);
 
     this.dirLight = new THREE.DirectionalLight(0xffecd0, 1.5);
     this.dirLight.position.set(8, 16, 10);
@@ -1672,152 +1720,663 @@ class FatalStrike3DGame {
     }
   }
 
-  // Fatal Blow Cinemático
-  executeFatalBlowCinematic(attacker, defender) {
-    const isP1 = attacker === this.p1;
-    const beamColor = attacker.data.beamColor;
+  // ==========================================================================
+  // HELPERS CINEMÁTICOS ULTRA-HD (SCREEN SHAKE, FLASH, ILUMINACIÓN Y VIGNETTE)
+  // ==========================================================================
+  triggerScreenShake(intensity = 0.35, duration = 300) {
+    this.screenShakeIntensity = Math.max(this.screenShakeIntensity, intensity);
+    if (this.shakeTimeout) clearTimeout(this.shakeTimeout);
+    this.shakeTimeout = setTimeout(() => {
+      this.screenShakeIntensity = 0;
+      this.screenShakeOffset.set(0, 0, 0);
+    }, duration);
+  }
 
-    document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.add('active'));
+  triggerCinematicFlash(type = 'white', duration = 200) {
+    const flash = this.dom.cinematicFlash || document.getElementById('cinematic-flash');
+    if (!flash) return;
+    flash.className = `cinematic-flash ${type}`;
+    if (this.flashTimeout) clearTimeout(this.flashTimeout);
+    this.flashTimeout = setTimeout(() => {
+      flash.className = 'cinematic-flash';
+    }, duration);
+  }
 
-    const targetCamX = (attacker.x + defender.x) / 2;
-    gsap.to(this.camera.position, {
-      x: targetCamX + (isP1 ? 2.8 : -2.8),
-      y: 1.8,
-      z: 5.5,
-      duration: 0.45,
-      ease: 'power3.out'
+  setBloodVignette(active) {
+    const vig = this.dom.bloodVignette || document.getElementById('blood-vignette');
+    if (vig) {
+      if (active) vig.classList.add('finish-him');
+      else vig.classList.remove('finish-him');
+    }
+  }
+
+  cleanCinematicProps() {
+    if (this.cinematicProps && this.cinematicProps.length > 0) {
+      this.cinematicProps.forEach(m => {
+        if (m.parent) m.parent.remove(m);
+      });
+      this.cinematicProps = [];
+    }
+  }
+
+  applyFatalityLighting(charKey) {
+    if (charKey === 'freddy') {
+      // Caldera infernal roja/naranja
+      if (this.ambientLight) this.ambientLight.color.setHex(0x1a0505);
+      if (this.dirLight) {
+        this.dirLight.color.setHex(0xff3300);
+        this.dirLight.intensity = 2.6;
+      }
+      if (this.rimLightL) this.rimLightL.color.setHex(0xff6600);
+      if (this.rimLightR) this.rimLightR.color.setHex(0xff1100);
+    } else if (charKey === 'mime') {
+      // Slasher blanco y negro noir frío con reflectores carmesí
+      if (this.ambientLight) this.ambientLight.color.setHex(0x06060c);
+      if (this.dirLight) {
+        this.dirLight.color.setHex(0xf8fafc);
+        this.dirLight.intensity = 2.4;
+      }
+      if (this.rimLightL) this.rimLightL.color.setHex(0x991b1b);
+      if (this.rimLightR) this.rimLightR.color.setHex(0xdc2626);
+    } else {
+      // Pennywise circo siniestro con luces amarillas Deadlights
+      if (this.ambientLight) this.ambientLight.color.setHex(0x100206);
+      if (this.dirLight) {
+        this.dirLight.color.setHex(0xffdd33);
+        this.dirLight.intensity = 2.2;
+      }
+      if (this.rimLightL) this.rimLightL.color.setHex(0xdc2626);
+      if (this.rimLightR) this.rimLightR.color.setHex(0xffaa00);
+    }
+  }
+
+  restoreStageLighting() {
+    if (this.ambientLight) this.ambientLight.color.setHex(0x2d121c);
+    if (this.dirLight) {
+      this.dirLight.color.setHex(0xffecd0);
+      this.dirLight.intensity = 1.5;
+    }
+    if (this.rimLightL) this.rimLightL.color.setHex(0x0284c7);
+    if (this.rimLightR) this.rimLightR.color.setHex(0xdc2626);
+  }
+
+  spawnBloodGeyser(x, y, count = 20) {
+    const geo = new THREE.SphereGeometry(0.045, 6, 6);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x990000,
+      roughness: 0.2,
+      metalness: 0.4
     });
 
-    const beamLength = Math.abs(attacker.x - defender.x) + 4.0;
-    const beamGeo = new THREE.CylinderGeometry(0.14, 0.14, beamLength, 16);
-    const beamMat = new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.95 });
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.rotation.z = Math.PI / 2;
-    beam.position.set(attacker.x + (attacker.facing * beamLength) / 2, 1.7, 0);
-    this.scene.add(beam);
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        x + (Math.random() - 0.5) * 0.15,
+        y + (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.15
+      );
+      this.scene.add(mesh);
 
-    const ringGeo = new THREE.TorusGeometry(0.65, 0.08, 12, 24);
-    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    ring.rotation.y = Math.PI / 2;
-    ring.position.set((attacker.x + defender.x) / 2, 1.7, 0);
-    this.scene.add(ring);
-
-    setTimeout(() => {
-      defender.takeDamage(260, attacker.facing * 0.7, false);
-      sounds.playFatalityGore();
-      this.spawn3DBloodExplosion(defender.x, 1.7, 50);
-
-      this.scene.remove(beam);
-      this.scene.remove(ring);
-
-      document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
-      gsap.to(this.camera.position, {
-        x: (this.p1.x + this.p2.x) / 2,
-        y: this.defaultCameraPos.y,
-        z: this.defaultCameraPos.z,
-        duration: 0.6,
-        ease: 'power2.out'
+      this.particles3D.push({
+        mesh,
+        vel: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.08,
+          0.12 + Math.random() * 0.15,
+          (Math.random() - 0.5) * 0.08
+        ),
+        life: 45 + Math.floor(Math.random() * 25)
       });
-    }, 950);
+    }
+  }
+
+  spawnBloodDecal(x, radius = 0.6) {
+    if (this.bloodDecals.length < 120) {
+      const decal = new THREE.Mesh(
+        new THREE.CircleGeometry(radius * (0.85 + Math.random() * 0.35), 16),
+        new THREE.MeshBasicMaterial({ color: 0x5a0202, transparent: true, opacity: 0.88 })
+      );
+      decal.rotation.x = -Math.PI / 2;
+      decal.position.set(x + (Math.random() - 0.5) * 0.3, FLOOR_Y + 0.016, (Math.random() - 0.5) * 0.3);
+      this.scene.add(decal);
+      this.bloodDecals.push(decal);
+    }
   }
 
   // ==========================================================================
-  // FATALITIES INDIVIDUALES SCRIPTADAS EN 3D
+  // FATAL BLOW CINEMÁTICO 3D (4 FASES ESTILO MORTAL KOMBAT 1)
+  // ==========================================================================
+  executeFatalBlowCinematic(attacker, defender) {
+    this.gameState = 'FATAL_BLOW_CINEMATIC';
+    const isP1 = attacker === this.p1;
+    const beamColor = attacker.data.beamColor;
+
+    attacker.vx = 0; attacker.vy = 0;
+    defender.vx = 0; defender.vy = 0;
+    attacker.state = 'special';
+    attacker.stateTimer = 120;
+    defender.state = 'hit';
+    defender.stateTimer = 120;
+
+    // Activar barras cinematográficas panorámicas
+    document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.add('active'));
+
+    sounds.playLaserBeam();
+    sounds.playAnnouncerBass();
+    this.triggerCinematicFlash('white', 250);
+
+    // FASE 1: Plano Holandés bajo y cerrado enfocando al atacante cargando su ataque
+    const midX = (attacker.x + defender.x) / 2;
+    const attackerCamX = attacker.x + (attacker.facing === 1 ? -2.2 : 2.2);
+
+    gsap.to(this.camera.position, {
+      x: attackerCamX,
+      y: 1.6,
+      z: 4.2,
+      duration: 0.45,
+      ease: 'power2.out',
+      onUpdate: () => this.camera.lookAt(attacker.x, 1.65, 0)
+    });
+
+    // Pose de carga del atacante
+    attacker.model.rightArm.rotation.x = 2.4;
+    attacker.model.leftArm.rotation.x = 1.8;
+
+    setTimeout(() => {
+      // FASE 2: Embestida del atacante + corte amplio cinematográfico lateral
+      gsap.to(this.camera.position, {
+        x: midX,
+        y: 1.85,
+        z: 5.6,
+        duration: 0.35,
+        ease: 'power3.out',
+        onUpdate: () => this.camera.lookAt(midX, 1.8, 0)
+      });
+
+      // Haz de energía volumétrico perforante
+      const beamLength = Math.abs(attacker.x - defender.x) + 4.5;
+      const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, beamLength, 16);
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: beamColor,
+        transparent: true,
+        opacity: 0.95
+      });
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      beam.rotation.z = Math.PI / 2;
+      beam.position.set(attacker.x + (attacker.facing * beamLength) / 2, 1.7, 0);
+      this.scene.add(beam);
+      this.cinematicProps.push(beam);
+
+      // Núcleo blanco incandescente del rayo
+      const coreGeo = new THREE.CylinderGeometry(0.08, 0.08, beamLength, 12);
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const coreBeam = new THREE.Mesh(coreGeo, coreMat);
+      coreBeam.rotation.z = Math.PI / 2;
+      coreBeam.position.copy(beam.position);
+      this.scene.add(coreBeam);
+      this.cinematicProps.push(coreBeam);
+
+      // Anillos de onda de choque en el pecho del rival
+      for (let r = 0; r < 3; r++) {
+        const ringGeo = new THREE.TorusGeometry(0.4 + r * 0.35, 0.06, 12, 28);
+        const ringMat = new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.9 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.y = Math.PI / 2;
+        ring.position.set(defender.x, 1.7, 0);
+        this.scene.add(ring);
+        this.cinematicProps.push(ring);
+
+        gsap.to(ring.scale, {
+          x: 2.2,
+          y: 2.2,
+          z: 2.2,
+          duration: 0.6 + r * 0.1,
+          ease: 'power2.out'
+        });
+      }
+
+      // FASE 3: Impacto slow-motion, bone-crunch, geiser de sangre y screen shake
+      setTimeout(() => {
+        sounds.playFatalityGore();
+        sounds.playBoneCrunch();
+        sounds.playMetalClang();
+        this.triggerScreenShake(0.48, 650);
+        this.triggerCinematicFlash('red', 280);
+
+        // Explosión de sangre saliendo por la espalda del rival
+        this.spawn3DBloodExplosion(defender.x - defender.facing * 0.4, 1.7, 65);
+        defender.takeDamage(260, attacker.facing * 0.8, false);
+
+        // Micro-zoom dramático en el punto de impacto
+        gsap.to(this.camera.position, {
+          z: 4.8,
+          duration: 0.4,
+          ease: 'power1.out'
+        });
+
+        // FASE 4: Resolución y retorno de cámara
+        setTimeout(() => {
+          this.cleanCinematicProps();
+          document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
+
+          gsap.to(this.camera.position, {
+            x: (this.p1.x + this.p2.x) / 2,
+            y: this.defaultCameraPos.y,
+            z: this.defaultCameraPos.z,
+            duration: 0.7,
+            ease: 'power2.out',
+            onComplete: () => {
+              if (this.gameState === 'FATAL_BLOW_CINEMATIC') {
+                this.gameState = 'FIGHTING';
+              }
+            }
+          });
+        }, 600);
+      }, 400);
+    }, 450);
+  }
+
+  // ==========================================================================
+  // 3 FATALITIES CINEMÁTICAS 3D ESPECTACULARES
   // ==========================================================================
   executeFatalityCinematic() {
     this.gameState = 'FATALITY_EXECUTION';
     const winner = this.fatalityWinner;
     const loser = this.fatalityLoser;
 
+    winner.vx = 0; winner.vy = 0;
+    loser.vx = 0; loser.vy = 0;
     winner.state = 'fatality_killer';
     loser.state = 'fatality_victim';
 
     document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.add('active'));
+    this.setBloodVignette(true);
+    if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
+    if (this.dom.fatalityTimerBar) this.dom.fatalityTimerBar.classList.add('hidden');
 
+    sounds.playAnnouncerBass();
     sounds.playFatalityGore();
     sounds.speak('FATALITY');
     this.showAnnouncer('FATALITY', `${winner.data.name.toUpperCase()} WINS`, 4000, null, true);
 
-    const orbitTarget = { angle: 0, dist: 6.5, height: 2.2 };
-    const centerPoint = new THREE.Vector3((winner.x + loser.x) / 2, 1.6, 0);
+    // Ajustar iluminación dramática de la Fatality
+    this.applyFatalityLighting(winner.characterKey);
 
-    gsap.to(orbitTarget, {
-      angle: Math.PI * 1.5,
-      dist: 5.0,
-      height: 1.6,
-      duration: 3.2,
-      ease: 'power1.inOut',
-      onUpdate: () => {
-        this.camera.position.x = centerPoint.x + Math.sin(orbitTarget.angle) * orbitTarget.dist;
-        this.camera.position.z = centerPoint.z + Math.cos(orbitTarget.angle) * orbitTarget.dist;
-        this.camera.position.y = orbitTarget.height;
-        this.camera.lookAt(centerPoint);
-      }
-    });
-
-    // Fatality única según el personaje vencedor
+    // FATALITY 1: THE MIME SLASHER (ART THE CLOWN) - DECAPITACIÓN FÍSICA Y GEISER
     if (winner.characterKey === 'mime') {
-      // Art the Clown: Decapitación lenta con cuchillo de carnicero y geiser de sangre
-      gsap.to(winner.mesh.position, {
-        x: loser.x - loser.facing * 0.9,
-        duration: 0.5,
+      // Cámara en contrapicado siguiendo el avance sádico de Art
+      gsap.to(this.camera.position, {
+        x: winner.x + winner.facing * 1.6,
+        y: 1.5,
+        z: 4.6,
+        duration: 1.0,
         ease: 'power2.out',
+        onUpdate: () => this.camera.lookAt(loser.x, 1.7, 0)
+      });
+
+      // Art se aproxima lentamente con paso firme
+      gsap.to(winner.mesh.position, {
+        x: loser.x - loser.facing * 1.05,
+        duration: 0.9,
+        ease: 'power1.inOut',
         onComplete: () => {
-          sounds.playBladeSlash();
-          sounds.playFatalityGore();
-          if (loser.model && loser.model.headGroup) {
-            gsap.to(loser.model.headGroup.position, {
-              y: 4.8,
-              x: loser.facing * -2.2,
-              duration: 1.0,
+          // Art alza el cuchillo de carnicero con ambas manos
+          winner.model.rightArm.rotation.x = 2.8;
+          winner.model.leftArm.rotation.x = 2.6;
+          winner.model.rForeArm.rotation.x = 0.4;
+          if (winner.model.headGroup) winner.model.headGroup.rotation.z = -0.3; // sonrisa ladeada
+
+          // Corte a plano de perfil cercano
+          gsap.to(this.camera.position, {
+            x: (winner.x + loser.x) / 2,
+            y: 1.7,
+            z: 3.8,
+            duration: 0.45,
+            ease: 'power2.out'
+          });
+
+          // Breve suspenso antes del tajo letal
+          setTimeout(() => {
+            winner.model.rightArm.rotation.x = 0.8;
+            winner.model.rForeArm.rotation.x = -1.1;
+
+            sounds.playBladeSlash();
+            sounds.playMetalClang();
+            sounds.playFatalityGore();
+            sounds.playBoneCrunch();
+            this.triggerScreenShake(0.55, 750);
+            this.triggerCinematicFlash('red', 240);
+
+            // DESPRENDIMIENTO FÍSICO 3D DE LA CABEZA DEL RIVAL
+            if (loser.model && loser.model.headGroup) {
+              const headGroup = loser.model.headGroup;
+              const worldPos = new THREE.Vector3();
+              const worldQuat = new THREE.Quaternion();
+              headGroup.getWorldPosition(worldPos);
+              headGroup.getWorldQuaternion(worldQuat);
+
+              if (headGroup.parent) headGroup.parent.remove(headGroup);
+              headGroup.position.copy(worldPos);
+              headGroup.quaternion.copy(worldQuat);
+              this.scene.add(headGroup);
+              this.cinematicProps.push(headGroup);
+
+              // Parábola de la cabeza volando y rebotando en el suelo
+              const decapTargetX = loser.x - loser.facing * 2.8;
+              gsap.to(headGroup.position, {
+                x: decapTargetX,
+                duration: 1.1,
+                ease: 'power1.out'
+              });
+              gsap.to(headGroup.position, {
+                y: 3.8,
+                duration: 0.45,
+                ease: 'power2.out',
+                onComplete: () => {
+                  gsap.to(headGroup.position, {
+                    y: FLOOR_Y + 0.28,
+                    duration: 0.65,
+                    ease: 'bounce.out',
+                    onComplete: () => {
+                      this.spawnBloodDecal(decapTargetX, 1.2);
+                    }
+                  });
+                }
+              });
+              gsap.to(headGroup.rotation, {
+                x: Math.PI * 6,
+                z: Math.PI * 4,
+                duration: 1.1,
+                ease: 'power1.out'
+              });
+            }
+
+            // Geiser vertical continuo de sangre brotando del cuello decapitado
+            for (let f = 0; f < 8; f++) {
+              setTimeout(() => {
+                this.spawnBloodGeyser(loser.x, 2.1, 16);
+              }, f * 110);
+            }
+            this.spawn3DBloodExplosion(loser.x, 2.2, 90);
+
+            // El cuerpo sin cabeza colapsa hacia adelante
+            setTimeout(() => {
+              gsap.to(loser.mesh.rotation, {
+                x: Math.PI / 2,
+                duration: 0.7,
+                ease: 'power2.in'
+              });
+              gsap.to(loser.mesh.position, {
+                y: FLOOR_Y + 0.25,
+                duration: 0.7,
+                ease: 'bounce.out',
+                onComplete: () => {
+                  this.spawnBloodDecal(loser.x, 1.8);
+                }
+              });
+            }, 350);
+
+            // Art limpia su cuchilla y saluda silenciosamente al público
+            setTimeout(() => {
+              winner.model.rightArm.rotation.x = 1.2;
+              winner.model.leftArm.rotation.x = 1.4;
+              winner.model.leftArm.rotation.z = -0.5;
+              gsap.to(this.camera.position, {
+                x: winner.x,
+                y: 1.9,
+                z: 4.8,
+                duration: 1.2,
+                ease: 'power2.out',
+                onUpdate: () => this.camera.lookAt(winner.x, 1.6, 0)
+              });
+            }, 1200);
+          }, 450);
+        }
+      });
+    }
+
+    // FATALITY 2: THE DANCING TERROR (PENNYWISE) - DEADLIGHTS Y EXPLOSIÓN GORE CÓSMICA
+    else if (winner.characterKey === 'penny') {
+      winner.model.leftArm.rotation.z = -1.3;
+      winner.model.rightArm.rotation.z = 1.3;
+      winner.model.leftArm.rotation.x = 0.4;
+      winner.model.rightArm.rotation.x = 0.4;
+
+      sounds.playTeleport();
+
+      // Luz dorada Deadlights
+      const deadlights = new THREE.PointLight(0xffe600, 3.5, 12);
+      deadlights.position.set(winner.x, winner.y + 2.5, 0.4);
+      this.scene.add(deadlights);
+      this.cinematicProps.push(deadlights);
+
+      gsap.to(winner.mesh.position, {
+        y: FLOOR_Y + 1.3,
+        duration: 1.2,
+        ease: 'power1.inOut'
+      });
+
+      gsap.to(this.camera.position, {
+        x: loser.x + 2.5,
+        y: 2.2,
+        z: 4.8,
+        duration: 1.2,
+        ease: 'power2.out',
+        onUpdate: () => this.camera.lookAt(loser.x, 2.0, 0)
+      });
+
+      // Globo gigante carmesí cósmico
+      const balloonGeo = new THREE.SphereGeometry(1.65, 32, 32);
+      const balloonMat = new THREE.MeshStandardMaterial({
+        color: 0xdc2626,
+        roughness: 0.15,
+        metalness: 0.25,
+        transparent: true,
+        opacity: 0.88,
+        emissive: 0x550000,
+        emissiveIntensity: 0.6
+      });
+      const cosmicBalloon = new THREE.Mesh(balloonGeo, balloonMat);
+      cosmicBalloon.position.set(loser.x, FLOOR_Y + 0.1, 0);
+      cosmicBalloon.scale.set(0.1, 0.1, 0.1);
+      this.scene.add(cosmicBalloon);
+      this.cinematicProps.push(cosmicBalloon);
+
+      gsap.to(cosmicBalloon.scale, {
+        x: 1.25,
+        y: 1.45,
+        z: 1.25,
+        duration: 1.0,
+        ease: 'elastic.out(1, 0.75)'
+      });
+      gsap.to(cosmicBalloon.position, {
+        y: 2.1,
+        duration: 1.0,
+        ease: 'power2.out'
+      });
+
+      // La víctima es absorbida y flota dentro
+      gsap.to(loser.mesh.position, {
+        y: FLOOR_Y + 1.2,
+        duration: 1.0,
+        ease: 'power2.out'
+      });
+
+      // Ciclo de latidos que preceden a la detonación
+      setTimeout(() => {
+        sounds.playHeartbeat();
+        this.triggerScreenShake(0.2, 200);
+
+        gsap.to(cosmicBalloon.scale, {
+          x: 1.45,
+          y: 1.65,
+          z: 1.45,
+          duration: 0.22,
+          yoyo: true,
+          repeat: 3,
+          ease: 'power2.inOut',
+          onRepeat: () => {
+            sounds.playHeartbeat();
+            this.triggerScreenShake(0.25, 200);
+          },
+          onComplete: () => {
+            // DETONACIÓN GORE COLOSAL
+            sounds.playFatalityGore();
+            sounds.playBoneCrunch();
+            this.triggerScreenShake(0.65, 900);
+            this.triggerCinematicFlash('red', 350);
+
+            if (cosmicBalloon.parent) cosmicBalloon.parent.remove(cosmicBalloon);
+            loser.mesh.visible = false;
+
+            // Explosión de más de 160 partículas gore
+            this.spawn3DBloodExplosion(loser.x, 2.2, 160);
+            this.spawnBloodDecal(loser.x, 2.4);
+
+            // Pennywise desciende y hace reverencia victoriana
+            setTimeout(() => {
+              gsap.to(winner.mesh.position, {
+                y: FLOOR_Y,
+                duration: 1.0,
+                ease: 'power2.out',
+                onComplete: () => {
+                  winner.model.spine.rotation.x = 0.7; // reverencia profunda
+                  winner.model.leftArm.rotation.x = -0.5;
+                  winner.model.rightArm.rotation.x = -0.5;
+                  winner.model.leftArm.rotation.z = -0.8;
+                  winner.model.rightArm.rotation.z = 0.8;
+
+                  gsap.to(this.camera.position, {
+                    x: winner.x,
+                    y: 1.8,
+                    z: 4.8,
+                    duration: 0.9,
+                    ease: 'power2.out',
+                    onUpdate: () => this.camera.lookAt(winner.x, 1.5, 0)
+                  });
+                }
+              });
+            }, 600);
+          }
+        });
+      }, 1100);
+    }
+
+    // FATALITY 3: THE DREAM STALKER (FREDDY KRUEGER) - EMPALAMIENTO CON GARRAS Y FUEGO
+    else if (winner.characterKey === 'freddy') {
+      gsap.to(this.camera.position, {
+        x: winner.x - winner.facing * 1.5,
+        y: 1.2,
+        z: 3.6,
+        duration: 0.8,
+        ease: 'power2.out',
+        onUpdate: () => this.camera.lookAt(winner.x, 1.7, 0)
+      });
+
+      // Freddy rasca sus garras con chispas de acero
+      winner.model.rightArm.rotation.x = 1.8;
+      winner.model.rForeArm.rotation.x = -0.8;
+      winner.model.leftArm.rotation.x = 1.8;
+      winner.model.lForeArm.rotation.x = -0.8;
+
+      sounds.playMetalClang();
+      sounds.playBladeSlash();
+      this.spawn3DFireExplosion(winner.x + winner.facing * 0.3, 1.7, 25);
+      this.triggerScreenShake(0.2, 300);
+
+      // Embestida a hipervelocidad frente a la víctima
+      setTimeout(() => {
+        sounds.playTeleport();
+        gsap.to(winner.mesh.position, {
+          x: loser.x - loser.facing * 0.8,
+          duration: 0.25,
+          ease: 'power3.in',
+          onComplete: () => {
+            // EMPALAMIENTO DE DOBLE GARRA ATRAVESANDO EL PECHO
+            winner.model.rightArm.rotation.x = 1.5;
+            winner.model.rForeArm.rotation.x = 0;
+            winner.model.leftArm.rotation.x = 1.5;
+            winner.model.lForeArm.rotation.x = 0;
+
+            sounds.playBladeSlash();
+            sounds.playFatalityGore();
+            sounds.playBoneCrunch();
+            this.triggerScreenShake(0.55, 800);
+            this.triggerCinematicFlash('red', 240);
+
+            gsap.to(this.camera.position, {
+              x: (winner.x + loser.x) / 2,
+              y: 1.8,
+              z: 4.5,
+              duration: 0.4,
+              ease: 'power2.out',
+              onUpdate: () => this.camera.lookAt(loser.x, 1.9, 0)
+            });
+
+            // ELEVACIÓN DE LA VÍCTIMA EN EL AIRE POR LAS GARRAS
+            gsap.to(loser.mesh.position, {
+              y: FLOOR_Y + 1.1,
+              duration: 0.6,
               ease: 'power2.out'
             });
-            gsap.to(loser.model.headGroup.rotation, { z: Math.PI * 4, duration: 1.0 });
-          }
-          this.spawn3DBloodExplosion(loser.x, 2.4, 110);
-          loser.triggerKnockdown();
-        }
-      });
-    } else if (winner.characterKey === 'penny') {
-      // Pennywise: Globo gigante cósmico que absorbe al rival y detona en niebla carmesí
-      const bigBalloon = new THREE.Mesh(
-        new THREE.SphereGeometry(1.6, 24, 24),
-        new THREE.MeshStandardMaterial({ color: 0xdc2626, transparent: true, opacity: 0.85, roughness: 0.2 })
-      );
-      bigBalloon.position.set(loser.x, 1.8, 0);
-      this.scene.add(bigBalloon);
 
-      gsap.to(bigBalloon.scale, {
-        x: 1.9, y: 1.9, z: 1.9, duration: 1.3, ease: 'power2.in',
-        onComplete: () => {
-          this.scene.remove(bigBalloon);
-          loser.mesh.visible = false;
-          sounds.playFatalityGore();
-          this.spawn3DBloodExplosion(loser.x, 1.8, 120);
-        }
-      });
-    } else if (winner.characterKey === 'freddy') {
-      // Freddy Krueger: Embestida con garras cruzadas atravesando el pecho y llamas infernales
-      gsap.to(winner.mesh.position, {
-        x: loser.x - loser.facing * 0.75,
-        duration: 0.4,
-        ease: 'power3.in',
-        onComplete: () => {
-          sounds.playBladeSlash();
-          sounds.playMetalClang();
-          sounds.playFatalityGore();
-          this.spawn3DFireExplosion(loser.x, 1.6, 60);
-          this.spawn3DBloodExplosion(loser.x, 1.6, 70);
-          loser.triggerKnockdown();
-        }
-      });
+            // Llamas infernales brotando por la espalda
+            this.spawn3DFireExplosion(loser.x - loser.facing * 0.4, 2.2, 90);
+            this.spawn3DBloodExplosion(loser.x - loser.facing * 0.4, 2.2, 70);
+
+            // Freddy arranca sus cuchillas de golpe
+            setTimeout(() => {
+              sounds.playBladeSlash();
+              sounds.playMetalClang();
+              sounds.playBoneCrunch();
+              this.triggerScreenShake(0.4, 500);
+
+              winner.model.rightArm.rotation.x = 2.4;
+              winner.model.leftArm.rotation.x = 2.4;
+
+              // Caída inerte del cuerpo chamuscado
+              gsap.to(loser.mesh.rotation, {
+                z: -loser.facing * (Math.PI / 2),
+                duration: 0.5,
+                ease: 'power2.in'
+              });
+              gsap.to(loser.mesh.position, {
+                y: FLOOR_Y + 0.25,
+                duration: 0.5,
+                ease: 'bounce.out',
+                onComplete: () => {
+                  this.spawnBloodDecal(loser.x, 1.8);
+                }
+              });
+
+              // Freddy mira a la cámara y se acomoda el fedora
+              setTimeout(() => {
+                winner.mesh.rotation.y = 0;
+                winner.model.facingGroup.rotation.y = 0;
+                winner.model.rightArm.rotation.x = 1.9;
+                winner.model.rForeArm.rotation.x = -1.2;
+
+                sounds.speak('WELCOME TO MY NIGHTMARE');
+
+                gsap.to(this.camera.position, {
+                  x: winner.x,
+                  y: 1.8,
+                  z: 4.2,
+                  duration: 1.0,
+                  ease: 'power2.out',
+                  onUpdate: () => this.camera.lookAt(winner.x, 1.7, 0)
+                });
+              }, 800);
+            }, 900);
+          }
+        });
+      }, 500);
     }
 
     setTimeout(() => {
       const isFlawless = winner.health >= winner.maxHealth;
       if (isFlawless) sounds.speak('FLAWLESS VICTORY');
       this.concludeRound(winner, true);
-    }, 3800);
+    }, 4500);
   }
 
   // Generación de Entidades Especiales 3D
@@ -1974,6 +2533,10 @@ class FatalStrike3DGame {
       fatalityTimerBar: document.getElementById('fatality-timer-bar'),
       fatalityTimerFill: document.getElementById('fatality-timer-fill'),
       fatalityTimerText: document.getElementById('fatality-timer-text'),
+      fatalityHintBox: document.getElementById('fatality-hint-box'),
+      fatalityHintText: document.getElementById('fatality-hint-text'),
+      cinematicFlash: document.getElementById('cinematic-flash'),
+      bloodVignette: document.getElementById('blood-vignette'),
 
       p1Name: document.getElementById('p1-name'),
       p1HealthFill: document.getElementById('p1-health-fill'),
@@ -2055,6 +2618,18 @@ class FatalStrike3DGame {
       this.togglePause();
       this.openCharacterSelect();
     });
+
+    // Fatality Hint Box interactiva (clic para activar Fatality instantánea en Finish Him)
+    if (this.dom.fatalityHintBox) {
+      this.dom.fatalityHintBox.addEventListener('click', () => {
+        if (this.gameState === 'FINISH_HIM') {
+          clearInterval(this.fatalityInterval);
+          if (this.dom.fatalityTimerBar) this.dom.fatalityTimerBar.classList.add('hidden');
+          if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
+          this.executeFatalityCinematic();
+        }
+      });
+    }
 
     // Pestañas de movimientos
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2310,6 +2885,12 @@ class FatalStrike3DGame {
     this.fatalityWinner = null;
     this.fatalityLoser = null;
 
+    this.cleanCinematicProps();
+    this.restoreStageLighting();
+    this.setBloodVignette(false);
+    if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
+    document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
+
     this.dom.selectScreen.classList.add('hidden');
     this.dom.matchOverScreen.classList.add('hidden');
     this.dom.pauseModal.classList.add('hidden');
@@ -2320,6 +2901,8 @@ class FatalStrike3DGame {
 
     this.projectiles.forEach(p => this.scene.remove(p.mesh));
     this.projectiles = [];
+    this.bloodDecals.forEach(d => this.scene.remove(d));
+    this.bloodDecals = [];
 
     // Instanciar luchadores 3D
     this.p1 = new Fighter3D(1, this.p1Choice, -5.5, 1);
@@ -2337,6 +2920,12 @@ class FatalStrike3DGame {
     this.timer = ROUND_TIME;
     this.dom.roundTimer.textContent = this.timer;
     this.dom.roundBadge.textContent = this.round <= 2 ? `ROUND ${this.round}` : 'FINAL ROUND';
+
+    this.cleanCinematicProps();
+    this.restoreStageLighting();
+    this.setBloodVignette(false);
+    if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
+    document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
 
     this.p1.reset(-5.5, 1);
     this.p2.reset(5.5, -1);
@@ -2437,12 +3026,30 @@ class FatalStrike3DGame {
     loser.state = 'dazed';
     loser.vx = 0;
     loser.vy = 0;
+    winner.inputBuffer = [];
+
+    this.setBloodVignette(true);
 
     sounds.playAnnouncerBass();
     sounds.speak('FINISH HIM');
     this.showAnnouncer('FINISH HIM!', '¡EJECUTA LA FATALITY!', 2500, null, true);
 
     this.dom.fatalityTimerBar.classList.remove('hidden');
+
+    // Mostrar el cuadro de ayuda de Fatality para el jugador ganador
+    if (this.dom.fatalityHintBox && this.dom.fatalityHintText) {
+      const isP1 = (winner === this.p1);
+      let hint = '';
+      if (winner.characterKey === 'mime') {
+        hint = isP1 ? '💀 FATALITY: [ S + S + G ] (o clic aquí)' : '💀 FATALITY: [ ↓ + ↓ + L ] (o clic aquí)';
+      } else if (winner.characterKey === 'penny') {
+        hint = isP1 ? '💀 FATALITY: [ A + D + H ] (o clic aquí)' : '💀 FATALITY: [ ← + → + P ] (o clic aquí)';
+      } else if (winner.characterKey === 'freddy') {
+        hint = isP1 ? '💀 FATALITY: [ S + D + F ] (o clic aquí)' : '💀 FATALITY: [ ↓ + → + K ] (o clic aquí)';
+      }
+      this.dom.fatalityHintText.textContent = hint;
+      this.dom.fatalityHintBox.classList.remove('hidden');
+    }
 
     gsap.to(this.camera.position, {
       x: (winner.x + loser.x) / 2,
@@ -2465,6 +3072,7 @@ class FatalStrike3DGame {
       if (this.fatalityTimer <= 0) {
         clearInterval(this.fatalityInterval);
         this.dom.fatalityTimerBar.classList.add('hidden');
+        if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
         if (this.gameState === 'FINISH_HIM') {
           this.executeStandardKO();
         }
@@ -2473,14 +3081,32 @@ class FatalStrike3DGame {
   }
 
   checkFatalityTrigger() {
-    if (!this.fatalityWinner) return;
+    if (!this.fatalityWinner || this.gameState !== 'FINISH_HIM') return;
     const winner = this.fatalityWinner;
     const isP1 = winner === this.p1;
     const comboSeq = isP1 ? winner.data.fatalityComboP1 : winner.data.fatalityComboP2;
 
-    if (winner.checkSequence(comboSeq)) {
+    let matched = winner.checkSequence(comboSeq);
+
+    // Permitir combinación simétrica si está mirando al lado opuesto
+    if (!matched) {
+      if (winner.characterKey === 'penny') {
+        const mirrored = isP1 ? ['KeyD', 'KeyA', 'KeyH'] : ['ArrowRight', 'ArrowLeft', 'KeyP'];
+        matched = winner.checkSequence(mirrored);
+      } else if (winner.characterKey === 'freddy') {
+        const mirrored = isP1 ? ['KeyS', 'KeyA', 'KeyF'] : ['ArrowDown', 'ArrowLeft', 'KeyK'];
+        matched = winner.checkSequence(mirrored);
+      }
+    }
+
+    // Atajo rápido: tecla especial (H en P1, P/Ñ en P2) o Barra Espaciadora en Finish Him
+    const isSpecialPressed = isP1 ? this.keys['KeyH'] : (this.keys['KeyP'] || this.keys['KeyÑ'] || this.keys['Semicolon']);
+    const isSpacePressed = this.keys['Space'];
+
+    if (matched || isSpecialPressed || isSpacePressed) {
       clearInterval(this.fatalityInterval);
-      this.dom.fatalityTimerBar.classList.add('hidden');
+      if (this.dom.fatalityTimerBar) this.dom.fatalityTimerBar.classList.add('hidden');
+      if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
       this.executeFatalityCinematic();
     }
   }
@@ -2501,7 +3127,11 @@ class FatalStrike3DGame {
   concludeRound(winner, isFatality = false, isDraw = false) {
     clearInterval(this.timerInterval);
     clearInterval(this.fatalityInterval);
-    this.dom.fatalityTimerBar.classList.add('hidden');
+    this.cleanCinematicProps();
+    this.restoreStageLighting();
+    this.setBloodVignette(false);
+    if (this.dom.fatalityTimerBar) this.dom.fatalityTimerBar.classList.add('hidden');
+    if (this.dom.fatalityHintBox) this.dom.fatalityHintBox.classList.add('hidden');
     this.dom.announcerOverlay.classList.add('hidden');
     document.querySelectorAll('.cinematic-bar').forEach(b => b.classList.remove('active'));
 
@@ -2700,7 +3330,7 @@ class FatalStrike3DGame {
           this.camera.position.x += (midX - this.camera.position.x) * 0.08;
           this.camera.position.z += (Math.max(9.5, dist * 0.95 + 4.5) - this.camera.position.z) * 0.08;
           this.camera.lookAt(midX, 2.0, 0);
-        } else if (['FINISH_HIM', 'FATALITY_EXECUTION', 'ROUND_OVER', 'MATCH_OVER'].includes(this.gameState)) {
+        } else if (['FINISH_HIM', 'FATALITY_EXECUTION', 'FATAL_BLOW_CINEMATIC', 'ROUND_OVER', 'MATCH_OVER'].includes(this.gameState)) {
           if (this.p1) this.p1.update(this.p2);
           if (this.p2) this.p2.update(this.p1);
         }
@@ -2722,8 +3352,22 @@ class FatalStrike3DGame {
         }
       }
 
+      // Aplicar Screen Shake dinámico sin descalibrar el lerp o tween de la cámara
+      if (this.screenShakeIntensity > 0.001) {
+        this.screenShakeOffset.set(
+          (Math.random() - 0.5) * 2 * this.screenShakeIntensity,
+          (Math.random() - 0.5) * 2 * this.screenShakeIntensity,
+          (Math.random() - 0.5) * 1.5 * this.screenShakeIntensity
+        );
+        this.screenShakeIntensity *= 0.92;
+      } else {
+        this.screenShakeOffset.set(0, 0, 0);
+      }
+
       this.updateHUD();
+      this.camera.position.add(this.screenShakeOffset);
       this.renderer.render(this.scene, this.camera);
+      this.camera.position.sub(this.screenShakeOffset);
     };
 
     animate();
@@ -2734,4 +3378,5 @@ class FatalStrike3DGame {
 let game;
 window.addEventListener('DOMContentLoaded', () => {
   game = new FatalStrike3DGame();
+  window.game = game;
 });
